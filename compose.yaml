@@ -1,9 +1,20 @@
+# minamo の構成：4つのサービスが同じネットワークで動く
+#   frontend（画面） → backend（API） → db（PostgreSQL） / storage（画像の保存）
 services:
-  # 画面とAPI（Next.js）
-  web:
-    build: ./web
+  # 画面（Next.js）。外に出すのはこれだけ（サーバーの80番）
+  frontend:
+    build: ./frontend
     ports:
       - "80:3000"
+    environment:
+      BACKEND_URL: http://backend:4000   # バックエンドは「backend」という名前で呼べる
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # API（Express）。OCR とジャンル分けもここ
+  backend:
+    build: ./backend
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       S3_ENDPOINT: http://storage:8333
@@ -33,7 +44,7 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # 画像の保存（SeaweedFS：S3と同じ使い方ができる）
+  # 画像の保存（SeaweedFS：S3 と同じ使い方ができる）
   storage:
     image: chrislusf/seaweedfs
     command: server -dir=/data -s3 -s3.port=8333
