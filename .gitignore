@@ -219,3 +219,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .env
+
+# フロントの lib フォルダは、上の Python 用「lib/」の除外の対象外にする
+!frontend/lib/
