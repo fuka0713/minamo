@@ -38,6 +38,7 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
+      <p>フロントエンド動作確認テスト</p>
       {/* アップロード */}
       <label className="block cursor-pointer rounded-xl border-2 border-dashed border-gray-300 p-6 text-center">
         <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
