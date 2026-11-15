@@ -36,6 +36,18 @@ jobs:
           npm test
           npm run build
 
+      # API（backend-py：FastAPI）
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Backend-py - install, lint, test
+        working-directory: backend-py
+        run: |
+          pip install -r requirements.txt
+          ruff check .
+          python -m pytest -q
+
       # Docker でビルドできるか
       - name: Docker compose build
         run: |
