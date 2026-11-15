@@ -3,7 +3,7 @@
 // トップページ：スクショのアップロードと、欲しいものリスト（一覧）
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getGenres, getItems, showPrice, uploadScreenshots, type Genre, type Item } from "@/lib/api";
+import { analyzeScreenshot, getGenres, getItems, getMe, logout, registerScreenshots, showPeriod, showPrice, type Genre, type Item } from "@/lib/api";
 
 export default function Home() {
   const [genres, setGenres] = useState<Genre[]>([]); // ジャンルの一覧
@@ -11,9 +11,12 @@ export default function Home() {
   const [genre, setGenre] = useState(""); // 選んでいるジャンル（"" = すべて）
   const [keyword, setKeyword] = useState(""); // 検索キーワード
   const [message, setMessage] = useState(""); // 画面に出すお知らせ
+  const [email, setEmail] = useState(""); // ログインしている人
 
-  // 最初に1回だけ：ジャンルの一覧を読み込む
+  // 最初に1回だけ：ログインしている人と、ジャンルの一覧を読み込む
+  // （ログインしていなければ、自動でログイン画面に移る）
   useEffect(() => {
+    getMe().then((user) => setEmail(user.email));
     getGenres().then(setGenres);
   }, []);
 
@@ -25,10 +28,21 @@ export default function Home() {
   // スクショが選ばれたとき
   async function handleUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
-    setMessage(`${files.length}枚を読み取り中…（1枚につき数秒）`);
-    const created = await uploadScreenshots(Array.from(files));
+    // 1. 登録（登録した日と画像だけ）→ すぐ一覧に「解析中…」で出す
+    const created = await registerScreenshots(Array.from(files));
+    setItems(await getItems(genre, keyword));
+    // 2. 1枚ずつ解析して、商品名・ジャンルなどを埋める
+    for (let i = 0; i < created.length; i++) {
+      setMessage(`解析中…（${i + 1}/${created.length}枚）`);
+      await analyzeScreenshot(created[i].id);
+    }
     setMessage(`${created.length}枚を登録しました`);
     setItems(await getItems(genre, keyword));
+  }
+
+  async function handleLogout() {
+    await logout();
+    window.location.href = "/login";
   }
 
   // ジャンルの id から表示名を探す（例：cosme → コスメ）
@@ -38,7 +52,14 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      <p>フロントエンド動作確認テスト</p>
+      {/* ログインしている人 */}
+      <div className="flex items-center justify-end gap-3 text-sm text-gray-500">
+        <span>{email}</span>
+        <button onClick={handleLogout} className="underline">
+          ログアウト
+        </button>
+      </div>
+
       {/* アップロード */}
       <label className="block cursor-pointer rounded-xl border-2 border-dashed border-gray-300 p-6 text-center">
         <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
@@ -73,10 +94,12 @@ export default function Home() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={item.imageUrl} alt="" className="aspect-[3/4] w-full object-cover object-top" />
             <div className="p-2 text-sm">
-              <p className="font-bold">{item.title}</p>
+              <p className="font-bold">{item.analysisStatus === "pending" ? "解析中…" : item.title || "（商品名なし）"}</p>
               <p className="text-gray-500">
-                {genreLabel(item.genre)}・{showPrice(item.price)}
+                {genreLabel(item.genre)}
+                {item.priceVisible && item.price !== null && `・${showPrice(item.price)}`}
               </p>
+              {showPeriod(item.period) && <p className="text-orange-600">📅 {showPeriod(item.period)}</p>}
             </div>
           </Link>
         ))}

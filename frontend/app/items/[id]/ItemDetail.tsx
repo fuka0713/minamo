@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { deleteItem, getGenres, getItem, showPrice, updateItem, type Genre, type Item } from "@/lib/api";
+import { deleteItem, getGenres, getItem, showPrice, updateItem, type Genre, type Item, type Period } from "@/lib/api";
 
 export default function ItemDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -25,8 +25,21 @@ export default function ItemDetail({ id }: { id: string }) {
     setItem({ ...item!, ...changes });
   }
 
+  // 期間の入力欄の内容を、画面の中の item に反映する（保存はまだ）
+  function editPeriod(changes: Partial<Period>) {
+    edit({ period: { ...item!.period, ...changes } });
+  }
+
   async function save() {
-    setItem(await updateItem(item!.id, { title: item!.title, price: item!.price, memo: item!.memo }));
+    const { start, end, deadline, release } = item!.period;
+    setItem(
+      await updateItem(item!.id, {
+        title: item!.title,
+        price: item!.price,
+        memo: item!.memo,
+        period: { start, end, deadline, release },
+      }),
+    );
     setMessage("保存しました");
   }
 
@@ -66,13 +79,35 @@ export default function ItemDetail({ id }: { id: string }) {
           <p className="text-sm text-gray-500">商品名</p>
           <input value={item.title} onChange={(e) => edit({ title: e.target.value })} className="input" />
 
-          <p className="text-sm text-gray-500">価格（いま：{showPrice(item.price)}）</p>
+          <p className="text-sm text-gray-500">価格{item.price !== null && `（読み取った値：${showPrice(item.price)}）`}</p>
           <input
             value={item.price ?? ""}
             onChange={(e) => edit({ price: e.target.value === "" ? null : Number(e.target.value) })}
             type="number"
             className="input"
           />
+
+          <p className="text-sm text-gray-500">
+            期間（{item.period.source === "user" ? "修正済み" : "スクショから自動で読み取り"}）
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <label>
+              始まる日
+              <input type="date" value={item.period.start ?? ""} onChange={(e) => editPeriod({ start: e.target.value || null })} className="input" />
+            </label>
+            <label>
+              終わる日
+              <input type="date" value={item.period.end ?? ""} onChange={(e) => editPeriod({ end: e.target.value || null })} className="input" />
+            </label>
+            <label>
+              締切
+              <input type="date" value={item.period.deadline ?? ""} onChange={(e) => editPeriod({ deadline: e.target.value || null })} className="input" />
+            </label>
+            <label>
+              発売日
+              <input type="date" value={item.period.release ?? ""} onChange={(e) => editPeriod({ release: e.target.value || null })} className="input" />
+            </label>
+          </div>
 
           <p className="text-sm text-gray-500">メモ</p>
           <textarea value={item.memo} onChange={(e) => edit({ memo: e.target.value })} className="input" />
