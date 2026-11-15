@@ -1,0 +1,609 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>すくしょっぷ｜ホーム プロトタイプ</title>
+<style>
+:root {
+    --bg: #f7fbf8;
+    --paper: #fff;
+    --mint: #e3f5ed;
+    --mint2: #ccecdf;
+    --green: #55b99f;
+    --deep: #29443d;
+    --muted: #89a49a;
+    --line: #dfebe5;
+    --shadow: 0 8px 24px rgba(42, 91, 74, .07);
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: #eaf1ed;
+    color: var(--deep);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+}
+.phone {
+    width: min(100%, 430px);
+    min-height: 100vh;
+    margin: auto;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+    padding-bottom: 94px;
+    box-shadow: 0 0 40px #243d3014;
+}
+.top {
+    height: 76px;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 23px;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+.logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: #eff8f4;
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+}
+.bell {
+    border: 0;
+    background: #f1f8f4;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    color: #72988a;
+}
+.main { padding: 25px 20px 20px; }
+.eyebrow {
+    font-size: 10px;
+    letter-spacing: .17em;
+    color: #83a596;
+    font-weight: 800;
+    margin: 3px 0 8px;
+}
+.headline {
+    font-size: 27px;
+    line-height: 1.35;
+    letter-spacing: .01em;
+    margin: 0;
+    font-weight: 850;
+}
+.headline-row {
+    display: flex;
+    align-items: center; /* 上下中央に揃える */
+    gap: 0px;             /* 文字と？の間隔 */
+}
+
+.help-button {
+    width: 25px;
+    height: 25px;
+    flex-shrink: 0;
+    border: 1.5px solid #8bcbb5;
+    border-radius: 50%;
+    background: #e3f5ed;
+    color: #419b80;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 0;
+
+    /* 位置調整 */
+    position: relative;
+    top: 3px;
+    left: 300px;
+}
+.sub {
+    font-size: 13px;
+    color: #8ba198;
+    margin: -25px 0 19px;
+}
+
+/* メインカード */
+.hero {
+    background: var(--mint);
+    border: 1px solid #d3ebe0;
+    border-radius: 25px;
+    padding: 16px;
+    position: relative;
+    min-height: 220px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+.hero-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 185px;
+    position: relative;
+}
+.hero-copy {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    z-index: 2;
+}
+
+/* 吹き出し */
+.speech-bubble {
+    position: absolute;
+    top: -15px;
+    left: -1%;
+
+    background: #fff;
+    color: var(--deep);
+    padding: 15px 13px;
+    border-radius: 19px;
+    font-size: 15px;
+    line-height: 1.6;
+    font-weight: 800;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(39, 68, 57, .08);
+    border: 1px solid #edf5f0;
+    width: 58%;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    z-index: 3;
+}
+.speech-bubble:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(39, 68, 57, .12);
+}
+.speech-bubble::after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: 70%;
+    transform: translateX(-50%);
+    border-width: 10px 10px 0;
+    border-style: solid;
+    border-color: #fff transparent transparent;
+}
+.cta {
+    border: 0;
+    background: var(--green);
+    color: white;
+    border-radius: 13px;
+    padding: 12px 13px;
+    font-weight: 800;
+    font-size: 12px;
+    box-shadow: 0 5px 12px #54b89d35;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* 猫の画像 */
+.cat-wrap {
+    position: absolute;
+    top: 0;
+    right: -10%;
+    width: 120%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    z-index: 1;
+}
+.cat {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transform: scale(1.2);
+}
+.section { margin-top: 22px; }
+.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.section-title {
+    font-size: 16px;
+    font-weight: 850;
+    margin: 0;
+}
+.small-link {
+    font-size: 11px;
+    color: #4caa91;
+    text-decoration: none;
+    font-weight: 750;
+}
+.categories {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 9px;
+}
+.category {
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 15px;
+    min-height: 74px;
+    padding: 10px 4px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #779388;
+    cursor: pointer;
+    transition: .15s;
+}
+.category .emoji { font-size: 22px; }
+.category span:last-child {
+    font-size: 11px;
+    font-weight: 750;
+}
+.category.active {
+    background: #e4f5ee;
+    border: 1.5px solid #73c4aa;
+    color: #398f78;
+    box-shadow: 0 4px 12px #4aaf8b18;
+}
+.plus {
+    font-size: 27px !important;
+    font-weight: 300 !important;
+    line-height: 22px;
+}
+.gallery-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 11px;
+}
+.count { font-size: 10px; color: #91a69d; }
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.item {
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 3px 12px #345e4810;
+    cursor: pointer;
+}
+.thumb {
+    height: 94px;
+    display: grid;
+    place-items: center;
+    font-size: 35px;
+    position: relative;
+}
+.thumb:after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(140deg, #ffffff55, transparent 55%);
+}
+.thumb.cosme { background: linear-gradient(145deg, #f8dfe5, #f7eef0); }
+.thumb.pc { background: linear-gradient(145deg, #dce9f5, #edf3f8); }
+.thumb.daily { background: linear-gradient(145deg, #e3eddb, #f4f6e9); }
+.thumb.fashion { background: linear-gradient(145deg, #f0e4d8, #f8f1e9); }
+.item-info { padding: 8px 8px 9px; }
+.item-name {
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.item-date {
+    font-size: 9px;
+    color: #9aaca4;
+    margin-top: 3px;
+}
+.empty {
+    grid-column: 1/-1;
+    padding: 24px 10px;
+    text-align: center;
+    background: #fff;
+    border: 1px dashed #d7e7df;
+    border-radius: 14px;
+    color: #8da49a;
+    font-size: 12px;
+}
+.bottom {
+    height: 76px;
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(100%, 430px);
+    background: #ffffffed;
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 8px 7px max(8px, env(safe-area-inset-bottom));
+    z-index: 8;
+}
+.nav {
+    border: 0;
+    background: transparent;
+    color: #91a49c;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 13px;
+    cursor: pointer;
+}
+.nav .ico { font-size: 20px; line-height: 1.1; }
+.nav.active { background: #e7f6ef; color: #48a88e; }
+.toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #29443d;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 30px;
+    font-size: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: .2s;
+    z-index: 20;
+    white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+.modal-bg {
+    position: fixed;
+    inset: 0;
+    background: #14251f66;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 30;
+}
+.modal-bg.open { display: flex; }
+.modal {
+    width: min(100%, 430px);
+    background: #fbfdfb;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 20px 30px;
+    max-height: 78vh;
+    overflow: auto;
+}
+.handle {
+    width: 38px;
+    height: 4px;
+    background: #d7e5de;
+    border-radius: 8px;
+    margin: 0 auto 16px;
+}
+.modal h3 { font-size: 19px; margin: 0 0 5px; }
+.modal p {
+    font-size: 12px;
+    color: #8ba198;
+    margin: 0 0 16px;
+}
+.old-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.old {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+}
+.old .thumb { height: 105px; }
+.old b {
+    display: block;
+    font-size: 11px;
+    padding: 8px;
+}
+.modal-close {
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 13px;
+    background: #e5f4ed;
+    color: #418e78;
+    font-weight: 800;
+    margin-top: 15px;
+    cursor: pointer;
+}
+@media(min-width:600px) {
+    body { padding: 22px 0; }
+    .phone {
+        border-radius: 28px;
+        min-height: 850px;
+    }
+    .bottom {
+        bottom: 22px;
+        border-radius: 0 0 28px 28px;
+    }
+}
+@media(max-width:360px) {
+    .cat-wrap { width: 40%; flex-basis: 40%; }
+    .speech-bubble { font-size: 13px; padding: 12px 9px; }
+    .cta { font-size: 10px; padding: 10px 8px; }
+}
+</style>
+</head>
+<body>
+<div class="phone">
+    <header class="top">
+        <div class="brand">
+            <div class="logo">🛒</div><span>すくしょっぷ</span>
+        </div>
+        <button class="bell" aria-label="通知" onclick="toast('新しいリマインドはありません')">♧</button>
+    </header>
+
+    <main class="main">
+        <div class="eyebrow">YOUR LITTLE WISHES, ALL TOGETHER.</div>
+        <h1 class="headline">欲しい！を、忘れない。</h1>
+        <button class="help-button" onclick="openHelp()" aria-label="使い方を見る">?</button>
+        <p class="sub">スクショから、欲しかったものをまとめよう。</p>
+
+        <section class="hero">
+            <div class="hero-inner">
+                <div class="hero-copy">
+                    <button class="speech-bubble" onclick="openModal()">
+                        眠ってる「欲しい」を起こしてみる？
+                    </button>
+                    
+                </div>
+                <div class="cat-wrap" aria-label="猫のイラスト">
+                    <img src="cat_main.jpg" alt="すくしょっぷの猫" class="cat">
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <h2 class="section-title">ジャンルから探す</h2>
+                <a class="small-link" href="#gallery" onclick="selectCategory('すべて')">すべて見る →</a>
+            </div>
+            <div class="categories">
+                <button class="category active" data-cat="すべて" onclick="selectCategory('すべて')"><span class="emoji">▦</span><span>すべて</span></button>
+                <button class="category" data-cat="コスメ" onclick="selectCategory('コスメ')"><span class="emoji">💄</span><span>コスメ</span></button>
+                <button class="category" data-cat="PC" onclick="selectCategory('PC')"><span class="emoji">💻</span><span>PC</span></button>
+                <button class="category" data-cat="日用品" onclick="selectCategory('日用品')"><span class="emoji">🧴</span><span>日用品</span></button>
+            </div>
+        </section>
+
+        <section class="section" id="gallery">
+            <div class="gallery-head">
+                <h2 class="section-title" id="galleryTitle">スクショした写真</h2>
+                <span class="count" id="count">全6件</span>
+            </div>
+            <div class="gallery" id="galleryGrid"></div>
+        </section>
+    </main>
+
+    <nav class="bottom">
+        <button class="nav active" onclick="navClick(this,'ホーム')"><span class="ico">⌂</span>ホーム</button>
+        <button class="nav" onclick="navClick(this,'スクショ追加')"><span class="ico">▧</span>スクショ追加</button>
+        <button class="nav" onclick="navClick(this,'欲しいもの')"><span class="ico">♡</span>欲しいもの</button>
+        <button class="nav" onclick="navClick(this,'リマインド')"><span class="ico">♧</span>リマインド</button>
+        <button class="nav" onclick="navClick(this,'設定')"><span class="ico">⚙</span>設定</button>
+    </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+        <div class="handle"></div>
+        <h3>あのときの「欲しい」、いまはどう？</h3>
+        <p>約1か月前に保存したスクリーンショットです。</p>
+        <div class="old-list">
+            <div class="old"><div class="thumb cosme">💄</div><b>リップティント</b></div>
+            <div class="old"><div class="thumb pc">🎧</div><b>ワイヤレスヘッドホン</b></div>
+            <div class="old"><div class="thumb daily">🧴</div><b>保湿ボディミルク</b></div>
+            <div class="old"><div class="thumb fashion">👜</div><b>ミニショルダーバッグ</b></div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">確認した！</button>
+    </div>
+</div>
+
+
+<div class="modal-bg" id="helpModal" onclick="if(event.target===this)closeHelp()">
+    <div class="modal">
+        <div class="handle"></div>
+        <h3>すくしょっぷの使い方</h3>
+        <p>欲しいものを忘れないための、かんたん3ステップ！</p>
+
+        <div class="help-step">
+            <b>① スクリーンショットを保存</b>
+            <p>SNSやネットで見つけた欲しいものをスクショしよう。</p>
+        </div>
+
+        <div class="help-step">
+            <b>② すくしょっぷに追加</b>
+            <p>スクショを選んで、欲しいものを登録しよう。</p>
+        </div>
+
+        <div class="help-step">
+            <b>③ ジャンルごとに整理</b>
+            <p>コスメやPCなど、ジャンル別に欲しいものを確認できるよ。</p>
+        </div>
+
+        <button class="modal-close" onclick="closeHelp()">閉じる</button>
+    </div>
+</div>
+
+
+<script>
+const products = [
+    { cat: 'コスメ', name: 'リップティント', date: '6月12日に追加', emoji: '💄', style: 'cosme' },
+    { cat: 'コスメ', name: 'チークパレット', date: '6月10日に追加', emoji: '🪞', style: 'cosme' },
+    { cat: 'PC', name: 'ワイヤレスヘッドホン', date: '6月9日に追加', emoji: '🎧', style: 'pc' },
+    { cat: 'PC', name: 'タブレットスタンド', date: '6月8日に追加', emoji: '💻', style: 'pc' },
+    { cat: '日用品', name: '保湿ボディミルク', date: '6月7日に追加', emoji: '🧴', style: 'daily' },
+    { cat: '日用品', name: 'ルームフレグランス', date: '6月5日に追加', emoji: '🕯️', style: 'daily' }
+];
+let current = 'すべて';
+
+function render() {
+    const items = current === 'すべて' ? products : products.filter(p => p.cat === current);
+    document.getElementById('galleryTitle').textContent = current === 'すべて' ? 'スクショした写真' : current + 'の写真';
+    document.getElementById('count').textContent = '全' + items.length + '件';
+    document.getElementById('galleryGrid').innerHTML = items.length
+        ? items.map(p => `<article class="item" onclick="toast('${p.name}を選択しました')"><div class="thumb ${p.style}">${p.emoji}</div><div class="item-info"><div class="item-name">${p.name}</div><div class="item-date">${p.date}</div></div></article>`).join('')
+        : '<div class="empty">このジャンルの写真はまだありません</div>';
+}
+function selectCategory(cat) {
+    current = cat;
+    document.querySelectorAll('.category').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+    render();
+}
+function openHelp() {
+    document.getElementById('helpModal').classList.add('open');
+}
+
+function closeHelp() {
+    document.getElementById('helpModal').classList.remove('open');
+}
+function openModal() { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+let toastTimer;
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1900);
+}
+function navClick(btn, name) {
+    document.querySelectorAll('.nav').forEach(n => n.classList.remove('active'));
+    btn.classList.add('active');
+    if (name !== 'ホーム') toast(name + '画面はデモ対象外です');
+}
+render();
+</script>
+</body>
+</html>
