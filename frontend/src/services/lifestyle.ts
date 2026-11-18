@@ -6,7 +6,5 @@ export interface LifestyleProfile {
   reminderTime: string;
 }
 const KEY = 'sukushop.v2.lifestyle.v1';
-export function loadLifestyle(): LifestyleProfile | null {
-  try { const value = localStorage.getItem(KEY); return value ? JSON.parse(value) as LifestyleProfile : null; } catch { return null; }
-}
+/** 診断の回答の控え（表示用）。本物はサーバー（/api/lifestyle）にある */
 export function saveLifestyle(profile: LifestyleProfile): void { localStorage.setItem(KEY, JSON.stringify(profile)); }
