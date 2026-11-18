@@ -22,6 +22,7 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       APP_TIMEZONE: Asia/Tokyo
       ALLOW_GUEST: ${ALLOW_GUEST:-true}            # デモ：メールアドレスなしで入れる
+      UPLOAD_LIMIT_PER_10MIN: ${UPLOAD_LIMIT_PER_10MIN:-40}  # 1人10分間に登録できる数
       COOKIE_SECURE: ${COOKIE_SECURE:-false}      # https で公開するなら true
       TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
     depends_on:

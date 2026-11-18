@@ -26,6 +26,8 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"  # ht
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 1枚 10MB まで
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
+# たくさん送りすぎないように：1人あたり、10分間に登録できるスクショの数（フォルダごとの追加も、これを超えると 429）
+UPLOAD_LIMIT_PER_10MIN = int(os.environ.get("UPLOAD_LIMIT_PER_10MIN", "40"))
 
 # デモ：メールアドレスとパスワードなしで入れる「ゲスト」を許すか（本番で閉じるときは false）
 ALLOW_GUEST = os.environ.get("ALLOW_GUEST", "true").lower() == "true"

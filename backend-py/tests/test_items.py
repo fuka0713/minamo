@@ -100,3 +100,14 @@ def test_期間限定の終わりと種類を返す(client):
     changed = client.patch(f"/api/items/{item['id']}", json={"limitedKind": "sale", "period": None}).json()
     assert changed["limitedKind"] == "sale" and changed["limitedUntil"] is None
     assert client.patch(f"/api/items/{item['id']}", json={"limitedKind": "なぞ"}).status_code == 400
+
+
+def test_短い間にたくさん送ると429(client, monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config, "UPLOAD_LIMIT_PER_10MIN", 2)
+    signup(client)
+    upload(client)
+    upload(client)
+    res = client.post("/api/items", files={"image": ("a.png", b"x", "image/png")})
+    assert res.status_code == 429 and res.json()["error"]["code"] == "TOO_MANY_UPLOADS"

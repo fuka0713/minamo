@@ -5,6 +5,10 @@ import type { LifestyleProfile } from '../services/lifestyle';
 import type { Product, Screenshot } from '../domain/types';
 import { appIcon } from '../utils/assets';
 import { analysisService, readScreenshot } from '../services/analysis';
+import { ApiError } from '../services/api';
+
+/** 一度に取りこむ量の上限（たくさん送りすぎないように） */
+const LIMITS = { maxFiles: 20, maxBytes: 10 * 1024 * 1024, maxTotalBytes: 100 * 1024 * 1024, types: ['image/png', 'image/jpeg', 'image/webp'] };
 
 export default function ImportPage({ onResults, notify }: { onResults: (products: Product[]) => void; notify: (message: string) => void; profile: LifestyleProfile | null }) {
   const [files, setFiles] = useState<Screenshot[]>([]);
@@ -29,9 +33,17 @@ export default function ImportPage({ onResults, notify }: { onResults: (products
         // サーバーで解析・登録。リマインドの候補日と理由もサーバーが決める
         results.push(...await analysisService.analyze(screenshot));
         setFiles(current => current.map(file => file.id === screenshot.id ? { ...file, status: 'done' } : file));
-      } catch {
+      } catch (e) {
         failed += 1;
         setFiles(current => current.map(file => file.id === screenshot.id ? { ...file, status: 'error' } : file));
+        if (e instanceof ApiError && e.status === 429) { // 送りすぎ：残りは送らずに止める
+          notify(e.message);
+          const rest = new Set(queue.slice(index + 1).map(file => file.id));
+          setFiles(current => current.map(file => rest.has(file.id) ? { ...file, status: 'error' } : file));
+          failed += rest.size;
+          setCompleted(queue.length);
+          break;
+        }
       }
       setCompleted(index + 1);
     }
@@ -48,21 +60,34 @@ export default function ImportPage({ onResults, notify }: { onResults: (products
   async function addFiles(list: FileList | null) {
     if (!list || busy || reading) return;
     setReading(true);
+    // フォルダごとのときは、画像（PNG・JPEG・WebP）だけを、新しい順に取りこむ。多すぎる・大きすぎる分はとばす
+    const all = Array.from(list);
+    const images = all.filter(file => LIMITS.types.includes(file.type) && !file.name.startsWith('.')).sort((a, b) => b.lastModified - a.lastModified);
+    const notImages = all.length - images.length;
     const added: Screenshot[] = [];
-    let skipped = 0;
-    for (const file of Array.from(list)) {
-      if (files.length + added.length >= 20) { skipped += 1; continue; }
+    let tooMany = 0, tooBig = 0, broken = 0, total = 0;
+    for (const file of images) {
+      if (files.length + added.length >= LIMITS.maxFiles) { tooMany += 1; continue; }
+      if (file.size > LIMITS.maxBytes || total + file.size > LIMITS.maxTotalBytes) { tooBig += 1; continue; }
       try {
-        const image = await readScreenshot(file);
-        added.push({ id: crypto.randomUUID(), name: file.name, image, status: 'ready' });
+        const image = await readScreenshot(file); // 長い辺1600pxの JPEG に縮めてから送る
+        total += file.size;
+        added.push({ id: crypto.randomUUID(), name: file.webkitRelativePath || file.name, image, status: 'ready' });
       } catch {
-        skipped += 1;
+        broken += 1;
       }
     }
     const queue = [...files, ...added];
     setFiles(queue);
     setReading(false);
-    if (skipped) notify(`${added.length}枚を追加しました。形式・容量・上限のため${skipped}枚は読み込めませんでした。`);
+    const notes = [
+      tooMany && `上限（1回${LIMITS.maxFiles}枚）をこえた${tooMany}枚`,
+      tooBig && `大きすぎる（1枚10MB・合計100MBまで）${tooBig}枚`,
+      broken && `読みこめなかった${broken}枚`,
+      notImages && `画像以外の${notImages}ファイル`,
+    ].filter(Boolean);
+    if (notes.length) notify(`${added.length}枚を追加しました（新しい順）。${notes.join('・')}は入れていません。`);
+    else if (!added.length) notify('追加できる画像がありませんでした（PNG・JPEG・WebP）。');
     if (added.length) void runAnalysis(added); // 新しく選んだ分だけ送る（同じ画像を二重に登録しない）
   }
 
@@ -96,7 +121,7 @@ export default function ImportPage({ onResults, notify }: { onResults: (products
       <h2>写真を追加すると、自動で商品を探します。</h2>
       <p>スクショや写真から、欲しかったものをまとめて見つけます。</p>
       <button className="primary" disabled={busy || reading} onClick={() => multi.current?.click()}><ImagePlus size={19} />スクショをまとめて追加</button>
-      <small>PNG・JPEG・WebP / 1枚10MBまで / 最大20枚</small>
+      <small>PNG・JPEG・WebP / 1枚10MBまで / 1回20枚まで（フォルダは新しい順に20枚）</small>
       <div className="upload-alternatives">
         <button disabled={busy || reading} onClick={() => { if (folder.current && 'webkitdirectory' in folder.current) folder.current.click(); else { notify('フォルダ選択に非対応のため、複数ファイル選択を開きます。'); multi.current?.click(); } }}><FolderOpen size={16} />フォルダから追加</button>
         <span />

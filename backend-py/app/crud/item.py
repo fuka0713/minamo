@@ -57,6 +57,11 @@ def list_page(db: Session, user_id: str, *, genre: str | None, keyword: str | No
     return rows[:limit], len(rows) > limit
 
 
+def count_recent(db: Session, user_id: str, since: datetime) -> int:
+    """since より後に登録した数（送りすぎを止めるため）。"""
+    return db.scalar(select(func.count()).select_from(Item).where(Item.user_id == user_id, Item.created_at >= since)) or 0
+
+
 def count(db: Session, user_id: str) -> int:
     return db.scalar(select(func.count()).select_from(Item).where(Item.user_id == user_id)) or 0
 
