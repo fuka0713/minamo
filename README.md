@@ -100,7 +100,7 @@ API は **解析 API** と **推薦 API** に分けている。
 |---|---|
 | `LLM_PROVIDER` | 使う AI：`gemini`（既定）/ `xai`。選んだ方の鍵が無ければ、もう一方の鍵を使う |
 | `GEMINI_API_KEY` | Google AI Studio（https://aistudio.google.com/apikey）で発行。無料枠あり |
-| `GEMINI_ENDPOINT` | ふつうは空でよい。空なら鍵の形で呼び先を自動で選ぶ（`AIza…`→Gemini API、`AQ.…`→Vertex AI）。だめならもう一方も試す。`gemini` / `vertex` で決め打ちもできる |
+| `GEMINI_ENDPOINT` | ふつうは空でよい。空なら Gemini API（AI Studio の鍵。`AIza…` も新しい形の `AQ.…` もある）を先に試し、鍵を受けつけなければ Vertex AI も試す。`gemini` / `vertex` で決め打ちもできる |
 | `XAI_API_KEY` | xAI Console（https://console.x.ai）で発行。クレジットを先に買う（有料） |
 | `GEMINI_MODEL` / `XAI_MODEL` | 使うモデル（既定 `gemini-2.5-flash` / `grok-4`）。使える名前は各サービスの画面で確認する（xAI は画像を読めるモデルにする） |
 

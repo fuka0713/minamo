@@ -48,7 +48,7 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
-      GEMINI_ENDPOINT: ${GEMINI_ENDPOINT:-}  # 空なら鍵の形で自動（AIza…→Gemini API、AQ.…→Vertex AI）
+      GEMINI_ENDPOINT: ${GEMINI_ENDPOINT:-}  # 空なら Gemini API を先に試し、だめなら Vertex AI
       XAI_API_KEY: ${XAI_API_KEY:-}
       XAI_MODEL: ${XAI_MODEL:-grok-4}
     depends_on:

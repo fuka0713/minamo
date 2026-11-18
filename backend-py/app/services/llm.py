@@ -13,8 +13,8 @@ import os
 import httpx
 
 # Gemini の呼び先は2つある。どちらも同じ形の JSON を送り、同じ形で返ってくる
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"  # Gemini API（AIza… の鍵）
-VERTEX_URL = "https://aiplatform.googleapis.com/v1/publishers/google/models/{model}:generateContent"  # Vertex AI（AQ.… の鍵）
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"  # Gemini API（AI Studio の鍵）
+VERTEX_URL = "https://aiplatform.googleapis.com/v1/publishers/google/models/{model}:generateContent"  # Vertex AI の鍵のとき
 XAI_URL = "https://api.x.ai/v1/chat/completions"
 
 
@@ -56,16 +56,15 @@ def generate_json(prompt: str, schema: dict, image: bytes | None = None) -> dict
 
 
 def gemini_urls(key: str) -> list[str]:
-    """鍵の形から、先に試す呼び先を決める。GEMINI_ENDPOINT（gemini / vertex）で決め打ちもできる。
-
-    AIza… は Gemini API（Google AI Studio の鍵）、AQ.… は Vertex AI の鍵のことが多い。
+    """試す呼び先の順番。ふつうは Gemini API（AI Studio の鍵。AIza… も新しい形の AQ.… もある）を先に試し、
+    鍵を受けつけなければ Vertex AI も試す。GEMINI_ENDPOINT（gemini / vertex）で決め打ちもできる。
     """
     chosen = os.environ.get("GEMINI_ENDPOINT", "").lower()
     if chosen == "gemini":
         return [GEMINI_URL]
     if chosen == "vertex":
         return [VERTEX_URL]
-    return [VERTEX_URL, GEMINI_URL] if key.startswith("AQ.") else [GEMINI_URL, VERTEX_URL]
+    return [GEMINI_URL, VERTEX_URL]
 
 
 def _gemini(prompt: str, schema: dict, image: bytes | None) -> dict:

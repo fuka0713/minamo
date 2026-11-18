@@ -120,10 +120,10 @@ def test_xAI用に答えの形を文にする():
     assert llm.sniff_type(b"RIFF\x00\x00\x00\x00WEBP") == "image/webp"
 
 
-def test_Geminiの鍵の形で呼び先を選び_だめならもう一方(monkeypatch):
+def test_GeminiAPIを先に試し_だめならVertexAI(monkeypatch):
     monkeypatch.delenv("GEMINI_ENDPOINT", raising=False)
-    assert llm.gemini_urls("AIzaSy...")[0] == llm.GEMINI_URL
-    assert llm.gemini_urls("AQ.Ab8...")[0] == llm.VERTEX_URL  # Vertex AI の鍵
+    assert llm.gemini_urls("AIzaSy...") == [llm.GEMINI_URL, llm.VERTEX_URL]
+    assert llm.gemini_urls("AQ.Ab8...") == [llm.GEMINI_URL, llm.VERTEX_URL]  # AI Studio の新しい形の鍵も Gemini API が先
     monkeypatch.setenv("GEMINI_ENDPOINT", "gemini")
     assert llm.gemini_urls("AQ.Ab8...") == [llm.GEMINI_URL]
     monkeypatch.delenv("GEMINI_ENDPOINT")
@@ -135,10 +135,10 @@ def test_Geminiの鍵の形で呼び先を選び_だめならもう一方(monkey
 
     def fake_post(url, headers, json, timeout):
         called.append(url)
-        if "aiplatform" in url:  # Vertex AI では使えない鍵だった
+        if "generativelanguage" in url:  # Gemini API では使えない鍵だった（Vertex AI の鍵）
             return httpx.Response(403, json={"error": {}}, request=httpx.Request("POST", url))
         return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": answer}]}}]}, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(httpx, "post", fake_post)
     assert ai.extract_item(b"\x89PNG", TODAY)["title"] == "x"
-    assert ["aiplatform" in u for u in called] == [True, False]
+    assert ["aiplatform" in u for u in called] == [False, True]
