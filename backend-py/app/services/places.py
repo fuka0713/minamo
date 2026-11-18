@@ -1,9 +1,9 @@
-"""場所と結びつける：今いる場所の近くに、欲しいものを買えるお店があるかを調べる。
+"""場所と結びつける：欲しいものを買えるお店がどこにあるか・今いる場所の近くにあるかを調べる。
 
-2つのやり方：
-  1. 商品に「場所（緯度・経度）」を登録してある → その場所から半径〇m以内に入ったら知らせる（外部に問い合わせない）
-  2. 商品に「お店の名前・種類」だけがある → 地図（OpenStreetMap の Overpass API）で、近くにそのお店があるか調べる
-     POI_PROVIDER=overpass のときだけ使う。送るのは「だいたいの位置（約100mに丸めたもの）」と「お店の種類・名前」だけ
+お店の情報のとり方（POI_PROVIDER）：
+  dummy    … （既定）下の DUMMY_STORES（新宿・渋谷・池袋あたりの、仮のお店）を使う。外部には問い合わせない
+  overpass … 地図（OpenStreetMap の Overpass API）で調べる。送るのは「約100mに丸めた位置」と「お店の種類・名前」だけ
+  none     … 調べない（登録した地点だけを使う）
 """
 
 import math
@@ -12,7 +12,7 @@ import re
 
 import httpx
 
-POI_PROVIDER = os.environ.get("POI_PROVIDER", "none")  # overpass / none
+POI_PROVIDER = os.environ.get("POI_PROVIDER", "dummy")  # dummy / overpass / none
 OVERPASS_URL = os.environ.get("OVERPASS_URL", "https://overpass-api.de/api/interpreter")
 SEARCH_RADIUS_M = int(os.environ.get("NEARBY_SEARCH_RADIUS_M", "300"))  # お店を探す範囲
 
@@ -37,8 +37,31 @@ def _query(lat: float, lng: float, tags: set[tuple[str, str]], names: set[str]) 
     return f"[out:json][timeout:8];({''.join(parts)});out center 50;"
 
 
-def find_shops(lat: float, lng: float, tags: set[tuple[str, str]], names: set[str]) -> list[dict]:
-    """近くのお店を [{"name", "lat", "lng", "tags"}] で返す。使わない設定・失敗したときは []。"""
+# ---- ダミーのお店（位置はだいたい。画面の確認・発表用。本物のデータではない） ----
+DEFAULT_LOCATION = {"lat": 35.6896, "lng": 139.7006, "area": "新宿駅"}  # 現在地がわからないときに使う場所
+DUMMY_STORES = [
+    {"name": "IKEA 新宿", "area": "新宿", "lat": 35.6935, "lng": 139.7033, "tags": {"shop": "furniture", "brand": "IKEA"}},
+    {"name": "ニトリ 新宿店", "area": "新宿", "lat": 35.6918, "lng": 139.7046, "tags": {"shop": "furniture", "brand": "ニトリ"}},
+    {"name": "マツモトキヨシ 新宿東口店", "area": "新宿", "lat": 35.6912, "lng": 139.7019,
+     "tags": {"shop": "chemist", "brand": "マツモトキヨシ マツキヨ"}},
+    {"name": "ユニクロ 新宿店", "area": "新宿", "lat": 35.6903, "lng": 139.7029, "tags": {"shop": "clothes", "brand": "ユニクロ UNIQLO"}},
+    {"name": "ビックカメラ 新宿西口店", "area": "新宿", "lat": 35.6915, "lng": 139.6981, "tags": {"shop": "electronics", "brand": "ビックカメラ"}},
+    {"name": "紀伊國屋書店 新宿本店", "area": "新宿", "lat": 35.6923, "lng": 139.7040, "tags": {"shop": "books", "brand": "紀伊國屋書店"}},
+    {"name": "アニメイト 新宿", "area": "新宿", "lat": 35.6930, "lng": 139.7018, "tags": {"shop": "anime", "brand": "アニメイト"}},
+    {"name": "ロフト 渋谷店", "area": "渋谷", "lat": 35.6612, "lng": 139.6990, "tags": {"shop": "gift", "brand": "ロフト LOFT"}},
+    {"name": "ちいかわらんど 原宿店", "area": "原宿", "lat": 35.6715, "lng": 139.7050, "tags": {"shop": "toys", "brand": "ちいかわらんど"}},
+    {"name": "ポケモンセンター メガトウキョー", "area": "池袋", "lat": 35.7289, "lng": 139.7193,
+     "tags": {"shop": "toys", "brand": "ポケモンセンター"}},
+    {"name": "らーめん ダミー屋 新宿", "area": "新宿", "lat": 35.6908, "lng": 139.7001, "tags": {"amenity": "restaurant"}},
+    {"name": "カフェ ダミー 渋谷", "area": "渋谷", "lat": 35.6595, "lng": 139.7004, "tags": {"amenity": "cafe"}},
+]
+
+
+def find_shops(lat: float, lng: float, tags: set[tuple[str, str]], names: set[str], radius_m: int | None = None) -> list[dict]:
+    """近くのお店を [{"name", "area", "lat", "lng", "tags"}] で返す。使わない設定・失敗したときは []。"""
+    radius = radius_m or SEARCH_RADIUS_M
+    if POI_PROVIDER == "dummy":
+        return [dict(s) for s in DUMMY_STORES if distance_m(lat, lng, s["lat"], s["lng"]) <= radius]
     if POI_PROVIDER != "overpass" or not (tags or names):
         return []
     # 位置は約100mに丸めてから送る（細かい位置を外に出さない）
@@ -55,8 +78,19 @@ def find_shops(lat: float, lng: float, tags: set[tuple[str, str]], names: set[st
         center = e.get("center", e)
         if "lat" in center and "lon" in center:
             t = e.get("tags", {})
-            shops.append({"name": t.get("name") or t.get("brand") or "お店", "lat": center["lat"], "lng": center["lon"], "tags": t})
+            shops.append({"name": t.get("name") or t.get("brand") or "お店", "area": "近く", "lat": center["lat"],
+                          "lng": center["lon"], "tags": t})
     return shops
+
+
+def nearest_store(lat: float, lng: float, place_name: str | None, tags: list[tuple[str, str]], radius_m: int = 5000) -> dict | None:
+    """欲しいものを買えそうなお店のうち、いちばん近いもの（distanceM つき）。なければ None。"""
+    shops = [s for s in find_shops(lat, lng, set(tags), {place_name} if place_name else set(), radius_m)
+             if shop_matches(s, place_name, tags)]
+    if not shops:
+        return None
+    best = min(shops, key=lambda s: distance_m(lat, lng, s["lat"], s["lng"]))
+    return {**best, "distanceM": round(distance_m(lat, lng, best["lat"], best["lng"]))}
 
 
 def shop_matches(shop: dict, place_name: str | None, tags: list[tuple[str, str]]) -> bool:
@@ -64,5 +98,6 @@ def shop_matches(shop: dict, place_name: str | None, tags: list[tuple[str, str]]
     t = shop["tags"]
     if place_name:
         key = place_name.lower()
-        return key in str(t.get("name", "")).lower() or key in str(t.get("brand", "")).lower()
+        name, brand = str(t.get("name", shop.get("name", ""))).lower(), str(t.get("brand", "")).lower()
+        return key in name or key in brand or (bool(brand) and any(b and b in key for b in brand.split()))
     return any(t.get(k) == v for k, v in tags)

@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
       // FastAPI が担当するもの
       { source: "/api/screenshots", destination: `${BACKEND_PY_URL}/api/screenshots` },
       { source: "/api/screenshots/:path*", destination: `${BACKEND_PY_URL}/api/screenshots/:path*` },
+      { source: "/api/recommendations", destination: `${BACKEND_PY_URL}/api/recommendations` },
+      { source: "/api/recommendations/:path*", destination: `${BACKEND_PY_URL}/api/recommendations/:path*` },
       { source: "/api/docs", destination: `${BACKEND_PY_URL}/api/docs` },
       { source: "/api/openapi.json", destination: `${BACKEND_PY_URL}/api/openapi.json` },
       { source: "/api/py/:path*", destination: `${BACKEND_PY_URL}/api/py/:path*` },

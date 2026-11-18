@@ -42,6 +42,7 @@ class Analysis(BaseModel):
 
     status: AnalysisStatus = Field(description="pending=待ち / done=完了 / failed=失敗")
     analyzedAt: datetime | None = Field(None, description="解析した日時")
+    analyzer: Literal["gemini", "xai", "rules"] | None = Field(None, description="使った解析：gemini / xai / rules（OCR とルール）")
 
 
 class ReminderOut(BaseModel):

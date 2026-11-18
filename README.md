@@ -18,8 +18,9 @@
 | ジャンルが違うときにユーザーが直す | F-09, UC13 |
 | 一覧・ジャンルで絞り込み・キーワード検索 | F-20, F-22 |
 | 詳細・修正・削除 | F-21, F-32 |
-| 🆕 解析の結果から、リマインドするタイミングを推測する（期間・締切・発売日・給料日など。理由つき） | UC03, UC04 |
-| 🆕 場所（お店・地点）と結びつけ、その近くを通ったら知らせる | UC06 |
+| 🆕 AI（Gemini / xAI Grok）で画像を解析する（鍵がなければ OCR とルール） | F-05 |
+| 🆕 推薦：AI が推薦日と推薦理由を考え、1つを自動でリマインドにする（期間・締切・発売日・給料日・お店の場所から） | UC03, UC04 |
+| 🆕 場所（お店・地点）と結びつけ、推薦理由に使う・近くを通ったら知らせる（お店はダミーのデータ） | UC06 |
 
 ## フォルダの構成
 ```
@@ -62,16 +63,25 @@ minamo/
 - backend・db・storage はサーバーの外に公開しない
 
 ## スクショを登録したときの流れ（backend-py）
-1. **登録** `POST /api/screenshots`：画像を storage に保存し、「登録した日」と「画像」だけを入れる（解析の状態は pending）
-2. **解析** `POST /api/screenshots/{id}/analyze`：Tesseract で文字を読み取り、商品名・説明文・価格・ジャンル・場所（お店の種類）を、埋められるところだけ埋める
-   - 価格と場所は、間違っているとストレスなので、最初は画面に出さない（`price_visible` / `place_visible`）
-   - ユーザーが直した項目（`edited_fields`）は、再解析で上書きしない
-   - 失敗したら `failed` になり、もう一度呼べばやり直せる
-3. 画面は、登録したらすぐ一覧に「解析中…」を出し、続けて解析を呼ぶ
-4. 🆕 **いつ思い出すか**：解析で読み取った期間から、リマインドを1つ自動で入れる（下の表）。`GET /api/screenshots/{id}/reminder-suggestions` で候補（最大3つ・理由つき）を見て、`POST /api/screenshots/{id}/reminders` で選び直せる
-5. 🆕 **どこで思い出すか**：`PUT /api/screenshots/{id}/place` で場所（お店の名前・緯度経度・半径）を登録。画面が `POST /api/screenshots/nearby` に今いる場所を送ると、近くにあるものが返る
+API は **解析 API** と **推薦 API** に分けている。
 
-### リマインドのタイミングの決め方（`app/services/timing.py`）
+| | 解析 API（`/api/screenshots/...`） | 推薦 API（`/api/recommendations/...`） |
+|---|---|---|
+| 役わり | スクショから項目を取り出す | いつ・どこで思い出させるか（通知のもと）を考える |
+| AI の使い方 | 画像を読む（商品名・価格・ジャンル・お店・期間） | **推薦日と推薦理由を考える**、近くのお店での一言を考える |
+| AI がないとき | OCR（Tesseract）＋ルール | ルール（下の表）＋お店の場所をそえた理由 |
+
+1. **登録** `POST /api/screenshots`：画像を storage に保存し、「登録した日」と「画像」だけを入れる（解析の状態は pending）
+2. **解析** `POST /api/screenshots/{id}/analyze`：商品名・説明文・価格・ジャンル・お店（種類・名前）・期間（開催期間・締切・発売日）を、埋められるところだけ埋める
+   - サーバーの `.env` に AI の鍵（`GEMINI_API_KEY` か `XAI_API_KEY`）があれば AI で画像を解析する。失敗したら自動で OCR とルールに戻る。使った解析は `analysis.analyzer`（`gemini` / `xai` / `rules`）
+   - AI を使うときも OCR は動かし、読み取った文字は検索用に残す。AI が空にしたお店の名前・期間は、OCR の文字からおぎなう
+   - ユーザーが直した項目（`edited_fields`）は、再解析で上書きしない。失敗したら `failed` になり、もう一度呼べばやり直せる
+3. **推薦** `POST /api/recommendations/items/{id}`：推薦日と推薦理由を最大3つ作り、1つを自動でリマインドにする
+   - AI があれば、期間・締切・発売日・給料日・季節・**お店の場所**から AI が考える。なければ下の表のルール
+   - 画面は解析のすぐあとにこれを呼ぶ。ホームは `GET /api/recommendations`、詳細は `GET /api/recommendations/items/{id}`
+4. **場所** `PUT /api/screenshots/{id}/place` で「ここを通ったら知らせて」の地点を登録。`POST /api/recommendations/nearby` に今いる場所を送ると、近くで買えるものが理由つきで返る
+
+### ルールで作る推薦（AI がないとき・AI へのヒント）（`app/services/timing.py`）
 | 解析で分かったこと | いつ知らせるか | 例の理由 |
 |---|---|---|
 | 開催期間の終わり | 終わる3日前の 20:00 | 「期間が終わる3日前です。行くか・買うかを決めるのにちょうどいい日です。」 |
@@ -79,17 +89,28 @@ minamo/
 | 締切 | 締切の前日 20:00 | 「締切の前日です。申し込むなら今のうちです。」 |
 | 発売日 | 発売日の 10:00 | 「発売日です。」 |
 | ジャンルが飲食店 | 次の土曜 11:00 | 「週末です。行けるか考えてみませんか？」 |
-| （いつでも） | 次の給料日 20:00（仮で毎月25日。土日なら直前の金曜） | 「給料日です。買うか決めませんか？」 |
+| （いつでも） | 次の給料日 20:00（仮で毎月25日。土日なら直前の金曜） | 「給料日です。買うか決めませんか？ IKEA 新宿（新宿）で買えます。」 |
 | どれもない | 1週間後 20:00 | 「1週間たちました。今も欲しいですか？」 |
 
-- 過去の日時は使わない。同じ日に2つは入れない。自動で入れるのは「期間から作った候補の一番早いもの」（なければ一番早いもの）
-- ユーザーが自分で選んだリマインドがあるときは、再解析しても自動のリマインドは入れない
+- 過去の日時は使わない。同じ日に2つは入れない。自動でリマインドにするのは、締切 → 期間の終わり → 発売日 → 始まる日 の順に見つかったもの（なければ一番早いもの）
+- ユーザーが選んだリマインド（`POST /api/recommendations/{id}/accept` など）があるときは、推薦を作り直しても自動のリマインドは入れない
 
-### 場所で知らせるしくみ（`app/services/places.py`）
-1. **登録した地点の近く**：商品に緯度・経度を登録してあれば、その半径（既定 200m）に入ったら知らせる。外部には問い合わせない
-2. **同じお店が近くにある**：お店の名前（解析で「IKEA」「マツキヨ」などを読み取る）か、ジャンルのお店の種類（コスメ→ドラッグストア など）だけのときは、
-   OpenStreetMap の Overpass API で、半径 300m 以内にそのお店があるか調べる。**`POI_PROVIDER=overpass` のときだけ**（キーは不要）。送る位置は約100mに丸める
-- 同じ商品を場所で知らせるのは24時間に1回まで。「いらない」にしたものは知らせない。送られた現在地は保存しない
+### 生成 AI の設定（`app/services/llm.py`・`app/services/ai.py`）
+| 設定（サーバーの `/opt/minamo/.env`） | 説明 |
+|---|---|
+| `LLM_PROVIDER` | 使う AI：`gemini`（既定）/ `xai`。選んだ方の鍵が無ければ、もう一方の鍵を使う |
+| `GEMINI_API_KEY` | Google AI Studio（https://aistudio.google.com/apikey）で発行。無料枠あり |
+| `XAI_API_KEY` | xAI Console（https://console.x.ai）で発行。クレジットを先に買う（有料） |
+| `GEMINI_MODEL` / `XAI_MODEL` | 使うモデル（既定 `gemini-2.5-flash` / `grok-4`）。使える名前は各サービスの画面で確認する（xAI は画像を読めるモデルにする） |
+
+- 鍵はサーバーの `.env` だけに書く（GitHub・画面には出さない）。鍵は URL ではなくヘッダーで送る
+- AI の答えは形を確かめてから使う（過去の日・同じ日・決まり以外の値は捨てる）。全部だめならルールに戻る
+- ⚠ AI を使うと、スクショや欲しいものの情報が Google / xAI に送られる。無料枠では送った内容がサービス改善に使われることがある
+
+### 場所のしくみ（`app/services/places.py`）
+- お店の情報は `POI_PROVIDER` で決まる：**`dummy`（既定）＝新宿・渋谷・池袋あたりの仮のお店（`DUMMY_STORES`）**／`overpass`＝OpenStreetMap で調べる（キー不要・位置は約100mに丸めて送る）／`none`
+- 推薦：欲しいものを買えそうなお店（名前かジャンルの種類が合うもの）の、いちばん近いものを推薦理由に使う（現在地がなければ新宿駅から探す）
+- 近く：登録した地点の半径（既定 200m）か、合うお店が 300m 以内にあれば知らせる。同じ商品は24時間に1回まで。「いらない」は知らせない。送られた現在地は保存しない
 - ⚠ ブラウザでは、**画面を開いている間しか**現在地を送れない（閉じているときに「通ったら知らせる」には、スマホアプリのジオフェンスが必要）
 
 ## 手元で動かす（Docker）
@@ -116,11 +137,14 @@ cd backend-py && pip install -r requirements.txt && ruff check . && python -m py
 | GET | `/api/genres` | ジャンルの一覧 |
 | GET | `/api/items?genre=cosme&q=リップ` | 一覧（絞り込み・検索） |
 | POST | `/api/screenshots` | （FastAPI）スクショを登録（フォームの `files` に画像）。登録した日と画像だけ入る |
-| POST | `/api/screenshots/{id}/analyze` | （FastAPI）解析して項目を埋める（`?force=true` で直した項目も上書き）。リマインドも1つ自動で入れる |
-| GET | `/api/screenshots/{id}/reminder-suggestions` | 🆕（FastAPI）リマインドの候補（最大3つ・理由つき） |
-| POST | `/api/screenshots/{id}/reminders` | 🆕（FastAPI）リマインドを入れる（`remindAt` `reason`） |
-| PUT | `/api/screenshots/{id}/place` | 🆕（FastAPI）場所を登録（`name` `category` `lat` `lng` `radiusM` `visible`） |
-| POST | `/api/screenshots/nearby` | 🆕（FastAPI）今いる場所（`lat` `lng`）の近くにある欲しいもの |
+| POST | `/api/screenshots/{id}/analyze` | （FastAPI・解析）解析して項目を埋める（`?force=true` で直した項目も上書き） |
+| POST | `/api/screenshots/{id}/reminders` | 🆕（FastAPI・解析）自分で決めた日時でリマインドを入れる（`remindAt` `reason`） |
+| PUT | `/api/screenshots/{id}/place` | 🆕（FastAPI・解析）場所を登録（`name` `category` `lat` `lng` `radiusM` `visible`） |
+| POST | `/api/recommendations/items/{id}` | 🆕（FastAPI・推薦）推薦日と推薦理由を作る（body に `lat` `lng` を入れると近いお店を使う） |
+| GET | `/api/recommendations/items/{id}` | 🆕（FastAPI・推薦）欲しいもの1件の推薦 |
+| GET | `/api/recommendations?limit=4` | 🆕（FastAPI・推薦）ホーム用：見直すとよい欲しいもの |
+| POST | `/api/recommendations/{id}/accept` | 🆕（FastAPI・推薦）推薦をリマインドにする |
+| POST | `/api/recommendations/nearby` | 🆕（FastAPI・推薦）今いる場所（`lat` `lng`）の近くで買える欲しいもの |
 | POST | `/api/items` | （Express・旧）スクショを登録して、その場で解析もする |
 | GET | `/api/items/:id` | 1件の詳細 |
 | GET | `/api/items/:id/image` | 画像 |
