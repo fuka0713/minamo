@@ -33,7 +33,7 @@ def list_reminders(db: Session, item_id: int) -> list[Reminder]:
     return list(db.scalars(select(Reminder).where(Reminder.item_id == item_id).order_by(Reminder.remind_at)))
 
 
-def apply_analysis(db: Session, item: Item, ocr_text: str, values: dict, force: bool = False) -> Item:
+def apply_analysis(db: Session, item: Item, ocr_text: str, values: dict, force: bool = False, analyzer: str = "rules") -> Item:
     """解析の結果で、埋められる項目を埋める。
 
     ユーザーが直した項目（edited_fields）は、force=True でないかぎり上書きしない。
@@ -48,6 +48,7 @@ def apply_analysis(db: Session, item: Item, ocr_text: str, values: dict, force: 
             setattr(item, field, values.get(field))
         item.period_source = "auto"
     item.ocr_text = ocr_text
+    item.analyzer = analyzer
     item.analysis_status = "done"
     item.analyzed_at = datetime.now(UTC)
     db.flush()
@@ -149,7 +150,7 @@ def to_out(db: Session, item: Item) -> dict:
         "id": item.id,
         "createdAt": item.created_at,
         "imageUrl": f"/api/items/{item.id}/image",
-        "analysis": {"status": item.analysis_status, "analyzedAt": item.analyzed_at},
+        "analysis": {"status": item.analysis_status, "analyzedAt": item.analyzed_at, "analyzer": item.analyzer},
         "title": item.title,
         "description": item.description,
         "price": {"value": item.price, "visible": item.price_visible},

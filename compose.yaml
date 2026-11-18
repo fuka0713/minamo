@@ -44,6 +44,9 @@ services:
       APP_TIMEZONE: Asia/Tokyo
       # 近くのお店を地図（OpenStreetMap の Overpass API）で調べるか。overpass / none（既定：none＝調べない）
       POI_PROVIDER: ${POI_PROVIDER:-none}
+      # Gemini で画像を解析するときの鍵（Google AI Studio で発行）。空なら OCR とルールで解析する
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     depends_on:
       db:
         condition: service_healthy

@@ -14,7 +14,7 @@ from app.crud import item as item_crud
 from app.database import get_db
 from app.deps import current_user
 from app.schemas import ErrorResponse, ItemOut
-from app.services import analyzer, ocr, storage
+from app.services import analysis, storage
 
 router = APIRouter(prefix="/api/screenshots", tags=["スクショ"])
 
@@ -54,7 +54,8 @@ def register(files: list[UploadFile], user_id: int = Depends(current_user), db: 
     response_model=ItemOut,
     summary="スクショを解析して、項目を埋める",
     description="画像の文字を読み取り、商品名・説明文・価格・ジャンル・場所（お店の種類・名前）・期間（開催期間・締切・発売日）の"
-    "うち、埋められるところを埋める。そのあと、解析の結果からリマインドを1つ自動で入れる（ユーザーが選んだリマインドがあれば入れない）。"
+    "うち、埋められるところを埋める。サーバーに GEMINI_API_KEY があれば Gemini で画像を解析し、なければ（失敗したら）OCR とルールで解析する。"
+    "そのあと、解析の結果からリマインドを1つ自動で入れる（ユーザーが選んだリマインドがあれば入れない）。"
     "ユーザーが直した項目は上書きしない（force=true のときだけ上書きする）。失敗したら analysis.status が failed になり、もう一度呼べばやり直せる。",
     responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )
@@ -65,12 +66,11 @@ def analyze(item_id: int, force: bool = False, user_id: int = Depends(current_us
 
     try:
         image = storage.load_image(item.image_key)  # 1. 画像を読む
-        text = ocr.read_text(image)  # 2. 文字を読み取る
+        values, text, used = analysis.analyze(image)  # 2. Gemini（または OCR ＋ルール）で項目を取り出す
     except Exception as err:  # 読み取れなかったら「失敗」を記録して返す
         print(f"解析に失敗しました（id={item_id}）: {err}")
         item = item_crud.mark_analysis_failed(db, item)
         return item_crud.to_out(db, item)
 
-    values = analyzer.analyze(text)  # 3. 文字から項目を取り出す
-    item = item_crud.apply_analysis(db, item, text, values, force=force)  # 4. 埋めて保存
+    item = item_crud.apply_analysis(db, item, text, values, force=force, analyzer=used)  # 3. 埋めて保存
     return item_crud.to_out(db, item)

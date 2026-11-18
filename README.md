@@ -64,6 +64,8 @@ minamo/
 ## スクショを登録したときの流れ（backend-py）
 1. **登録** `POST /api/screenshots`：画像を storage に保存し、「登録した日」と「画像」だけを入れる（解析の状態は pending）
 2. **解析** `POST /api/screenshots/{id}/analyze`：Tesseract で文字を読み取り、商品名・説明文・価格・ジャンル・場所（お店の種類）を、埋められるところだけ埋める
+   - 🆕 サーバーの `.env` に `GEMINI_API_KEY` があれば **Gemini で画像を解析**する（失敗したら自動で OCR とルールに戻る）。使った解析は `analysis.analyzer`（`gemini` / `rules`）で分かる
+   - Gemini を使うときも OCR は動かし、読み取った文字は検索用に残す。Gemini が空にしたお店の名前・期間は、OCR の文字からおぎなう
    - 価格と場所は、間違っているとストレスなので、最初は画面に出さない（`price_visible` / `place_visible`）
    - ユーザーが直した項目（`edited_fields`）は、再解析で上書きしない
    - 失敗したら `failed` になり、もう一度呼べばやり直せる
@@ -84,6 +86,15 @@ minamo/
 
 - 過去の日時は使わない。同じ日に2つは入れない。自動で入れるのは「期間から作った候補の一番早いもの」（なければ一番早いもの）
 - ユーザーが自分で選んだリマインドがあるときは、再解析しても自動のリマインドは入れない
+
+### Gemini の設定（`app/services/gemini.py`）
+| 設定（サーバーの `/opt/minamo/.env`） | 説明 |
+|---|---|
+| `GEMINI_API_KEY` | Google AI Studio（https://aistudio.google.com/apikey）で発行した鍵。空なら Gemini を使わない |
+| `GEMINI_MODEL` | 使うモデル（既定 `gemini-2.5-flash`）。使えるモデル名は AI Studio で確認する |
+
+- 鍵はサーバーの `.env` だけに書く（GitHub・画面には出さない）。鍵は URL ではなくヘッダーで送る
+- ⚠ Gemini を使うと、スクショが Google に送られる。無料枠では、送った内容が Google のサービス改善に使われることがある
 
 ### 場所で知らせるしくみ（`app/services/places.py`）
 1. **登録した地点の近く**：商品に緯度・経度を登録してあれば、その半径（既定 200m）に入ったら知らせる。外部には問い合わせない

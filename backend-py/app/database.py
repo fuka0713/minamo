@@ -56,6 +56,8 @@ MIGRATIONS = [
          ADD COLUMN IF NOT EXISTS place_lng         DOUBLE PRECISION,
          ADD COLUMN IF NOT EXISTS place_radius_m    INTEGER NOT NULL DEFAULT 200,
          ADD COLUMN IF NOT EXISTS place_notified_at TIMESTAMPTZ""",
+    # 使った解析（gemini / rules）
+    "ALTER TABLE items ADD COLUMN IF NOT EXISTS analyzer TEXT",
     # リマインドが「自動」か「ユーザーが選んだ」か
     "ALTER TABLE reminders ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'auto'",
 ]
