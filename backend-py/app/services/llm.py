@@ -12,7 +12,9 @@ import os
 
 import httpx
 
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# Gemini の呼び先は2つある。どちらも同じ形の JSON を送り、同じ形で返ってくる
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"  # Gemini API（AI Studio の鍵）
+VERTEX_URL = "https://aiplatform.googleapis.com/v1/publishers/google/models/{model}:generateContent"  # Vertex AI の鍵のとき
 XAI_URL = "https://api.x.ai/v1/chat/completions"
 
 
@@ -53,19 +55,36 @@ def generate_json(prompt: str, schema: dict, image: bytes | None = None) -> dict
     raise RuntimeError("AI の鍵が設定されていません")
 
 
+def gemini_urls(key: str) -> list[str]:
+    """試す呼び先の順番。ふつうは Gemini API（AI Studio の鍵。AIza… も新しい形の AQ.… もある）を先に試し、
+    鍵を受けつけなければ Vertex AI も試す。GEMINI_ENDPOINT（gemini / vertex）で決め打ちもできる。
+    """
+    chosen = os.environ.get("GEMINI_ENDPOINT", "").lower()
+    if chosen == "gemini":
+        return [GEMINI_URL]
+    if chosen == "vertex":
+        return [VERTEX_URL]
+    return [GEMINI_URL, VERTEX_URL]
+
+
 def _gemini(prompt: str, schema: dict, image: bytes | None) -> dict:
     parts: list[dict] = [{"text": prompt}]
     if image is not None:
         parts.append({"inline_data": {"mime_type": sniff_type(image), "data": base64.b64encode(image).decode()}})
-    res = httpx.post(
-        GEMINI_URL.format(model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")),
-        headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]},
-        json={"contents": [{"parts": parts}],
-              "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema, "temperature": 0.2}},
-        timeout=30,
-    )
-    res.raise_for_status()
-    return _as_dict(res.json()["candidates"][0]["content"]["parts"][0]["text"])
+    key = os.environ["GEMINI_API_KEY"]
+    body = {"contents": [{"role": "user", "parts": parts}],
+            "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema, "temperature": 0.2}}
+    urls = gemini_urls(key)
+    for i, url in enumerate(urls):
+        res = httpx.post(url.format(model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")),
+                         headers={"x-goog-api-key": key}, json=body, timeout=30)
+        # 鍵がこの呼び先で使えない（400・401・403・404）ときだけ、もう一方を試す
+        if res.status_code in (400, 401, 403, 404) and i + 1 < len(urls):
+            print(f"Gemini の呼び先 {url.split('/')[2]} で使えませんでした（{res.status_code}）。もう一方を試します")
+            continue
+        res.raise_for_status()
+        return _as_dict(res.json()["candidates"][0]["content"]["parts"][0]["text"])
+    raise RuntimeError("Gemini を呼べませんでした")
 
 
 def _xai(prompt: str, schema: dict, image: bytes | None) -> dict:

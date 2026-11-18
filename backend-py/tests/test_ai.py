@@ -1,6 +1,7 @@
 """生成 AI（Gemini / xAI Grok）を使うところのテスト。本物の AI には送らず、答えを「にせもの」に差し替える。"""
 
 import json
+import json as jsonlib
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -117,3 +118,27 @@ def test_xAI用に答えの形を文にする():
     plain = llm._plain(ai.RECOMMEND_SCHEMA)
     assert plain == {"recommendations": [{"date": "STRING", "time": "STRING", "reason": "STRING", "basis": "|".join(ai.BASIS)}]}
     assert llm.sniff_type(b"RIFF\x00\x00\x00\x00WEBP") == "image/webp"
+
+
+def test_GeminiAPIを先に試し_だめならVertexAI(monkeypatch):
+    monkeypatch.delenv("GEMINI_ENDPOINT", raising=False)
+    assert llm.gemini_urls("AIzaSy...") == [llm.GEMINI_URL, llm.VERTEX_URL]
+    assert llm.gemini_urls("AQ.Ab8...") == [llm.GEMINI_URL, llm.VERTEX_URL]  # AI Studio の新しい形の鍵も Gemini API が先
+    monkeypatch.setenv("GEMINI_ENDPOINT", "gemini")
+    assert llm.gemini_urls("AQ.Ab8...") == [llm.GEMINI_URL]
+    monkeypatch.delenv("GEMINI_ENDPOINT")
+
+    monkeypatch.setenv("GEMINI_API_KEY", "AQ.test")
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    called = []
+    answer = jsonlib.dumps({"title": "x", "genre": "other"})
+
+    def fake_post(url, headers, json, timeout):
+        called.append(url)
+        if "generativelanguage" in url:  # Gemini API では使えない鍵だった（Vertex AI の鍵）
+            return httpx.Response(403, json={"error": {}}, request=httpx.Request("POST", url))
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": answer}]}}]}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    assert ai.extract_item(b"\x89PNG", TODAY)["title"] == "x"
+    assert ["aiplatform" in u for u in called] == [False, True]
