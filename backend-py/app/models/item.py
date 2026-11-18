@@ -1,8 +1,8 @@
 """欲しいもの（スクショ1枚分）と、リマインド日。"""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -25,6 +25,16 @@ class Item(Base):
     genre: Mapped[str | None] = mapped_column(Text)  # ジャンル
     place_category: Mapped[str | None] = mapped_column(Text)  # 場所：お店の種類（ジャンルから自動）
     place_name: Mapped[str | None] = mapped_column(Text)  # 場所：具体的なお店（AI・ユーザー）
+    period_start: Mapped[date | None] = mapped_column(Date)  # 期間：始まる日
+    period_end: Mapped[date | None] = mapped_column(Date)  # 期間：終わる日
+    deadline: Mapped[date | None] = mapped_column(Date)  # 締切
+    release_date: Mapped[date | None] = mapped_column(Date)  # 発売日
+
+    # ---- 場所と結びつける（ユーザーが登録。「ここを通ったら知らせて」） ----
+    place_lat: Mapped[float | None] = mapped_column(Float)  # 緯度
+    place_lng: Mapped[float | None] = mapped_column(Float)  # 経度
+    place_radius_m: Mapped[int] = mapped_column(Integer, default=200)  # この半径（m）に入ったら知らせる
+    place_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # 最後に場所で知らせた日時（何度も知らせないため）
 
     # ---- ユーザーが決める ----
     wish_status: Mapped[str] = mapped_column(Text, default="want")  # want=いる / not_want=いらない / pending=保留
@@ -39,6 +49,7 @@ class Item(Base):
 
     # ---- Express の backend が使っている列 ----
     genre_source: Mapped[str] = mapped_column(Text, default="auto")  # auto=自動 / user=ユーザーが修正
+    period_source: Mapped[str] = mapped_column(Text, default="auto")  # auto=自動 / user=ユーザーが修正
     url: Mapped[str | None] = mapped_column(Text)
     memo: Mapped[str] = mapped_column(Text, default="")
 
@@ -52,5 +63,6 @@ class Reminder(Base):
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
     remind_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # 知らせる日時
     reason: Mapped[str] = mapped_column(Text, default="")  # 通知に出す理由
+    source: Mapped[str] = mapped_column(Text, default="auto")  # auto=解析から自動 / user=ユーザーが選んだ
     status: Mapped[str] = mapped_column(Text, default="scheduled")  # scheduled=予定 / sent=送った / canceled=取り消し
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

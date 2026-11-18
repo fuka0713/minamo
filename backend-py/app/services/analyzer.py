@@ -1,12 +1,14 @@
 """OCR で読み取った文字から、商品データの項目を埋める（AI は使わず、ルールだけの簡単なしくみ）。
 
-埋める項目：商品名・説明文・価格・ジャンル・場所（お店の種類）
+埋める項目：商品名・説明文・価格・ジャンル・場所（お店の種類・お店の名前）・期間（開催期間・締切・発売日）
 """
 
 import re
 import unicodedata
+from datetime import date
 
-from app.services.genres import GENRES, genre_label, place_for
+from app.services.genres import GENRES, STORE_NAMES, genre_label, place_for
+from app.services.period import find_period
 
 
 def normalize(text: str) -> str:
@@ -63,7 +65,19 @@ def make_description(text: str, genre: str) -> str | None:
     return f"{genre_label(genre)}｜{body}"[:60] if body else None
 
 
-def analyze(text: str) -> dict:
+def find_place_name(text: str) -> str | None:
+    """お店の名前：よくあるお店の名前（STORE_NAMES）が書いてあれば、それを返す。"""
+    t = normalize(text)
+    for name in STORE_NAMES:
+        if name.isascii():  # 英字の名前は、単語として出てきたときだけ（「GU」が「GUIDE」に当たらないように）
+            if re.search(rf"(?<![A-Za-z]){re.escape(name)}(?![A-Za-z])", t, re.IGNORECASE):
+                return name
+        elif normalize(name) in t:
+            return name
+    return None
+
+
+def analyze(text: str, today: date | None = None) -> dict:
     """読み取った文字から、埋められる項目を全部まとめて返す（埋められない項目は None）。"""
     genre = find_genre(text)
     return {
@@ -72,5 +86,6 @@ def analyze(text: str) -> dict:
         "price": find_price(text),
         "genre": genre,
         "place_category": place_for(genre),
-        "place_name": None,  # 具体的なお店は、AI を入れたら推定する（今は空）
+        "place_name": find_place_name(text),
+        **find_period(text, today),  # period_start・period_end・deadline・release_date
     }

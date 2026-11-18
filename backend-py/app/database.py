@@ -50,6 +50,14 @@ MIGRATIONS = [
          ADD COLUMN IF NOT EXISTS deadline        DATE,
          ADD COLUMN IF NOT EXISTS release_date    DATE,
          ADD COLUMN IF NOT EXISTS period_source   TEXT    NOT NULL DEFAULT 'auto'""",
+    # 場所と結びつける（feat/analysis-api）
+    """ALTER TABLE items
+         ADD COLUMN IF NOT EXISTS place_lat         DOUBLE PRECISION,
+         ADD COLUMN IF NOT EXISTS place_lng         DOUBLE PRECISION,
+         ADD COLUMN IF NOT EXISTS place_radius_m    INTEGER NOT NULL DEFAULT 200,
+         ADD COLUMN IF NOT EXISTS place_notified_at TIMESTAMPTZ""",
+    # リマインドが「自動」か「ユーザーが選んだ」か
+    "ALTER TABLE reminders ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'auto'",
 ]
 
 
