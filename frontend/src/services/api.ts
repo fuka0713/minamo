@@ -39,8 +39,7 @@ interface ItemOut {
   memo: string; createdAt: string; remindAt: string | null; imageUrl: string; reminderReason: string | null;
   repeat: Product['repeat']; limitedUntil: string | null; limitedKind: Product['limitedKind'] | null;
 }
-interface NotificationOut { id: string; itemId: string; message: string; status: 'unread' | 'answered'; item: ItemOut | null }
-export interface User { id: string; email: string }
+export interface User { id: string; username: string; email: string }
 
 // ---------- 形の変換 ----------
 const toStatus = (s: ItemOut['status']): Status => (s === 'unwanted' ? 'unneeded' : s);
@@ -61,8 +60,8 @@ export function toProduct(i: ItemOut): Product {
 // ---------- アカウント ----------
 export const authApi = {
   me: () => request<User>('/auth/me'),
-  login: (email: string, password: string) => request<User>('/auth/login', json('POST', { email, password })),
-  signup: (email: string, password: string) => request<User>('/auth/signup', json('POST', { email, password })),
+  login: (username: string, password: string) => request<User>('/auth/login', json('POST', { username, password })),
+  signup: (username: string, password: string) => request<User>('/auth/signup', json('POST', { username, password })),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
   /** デモ：メールアドレスとパスワードなしで入る（このブラウザだけのアカウント） */
   guest: () => request<User>('/auth/guest', { method: 'POST' }),
@@ -112,7 +111,7 @@ export const itemApi = {
   setStatus: async (id: string, status: Status) => toProduct(await request<ItemOut>(`/items/${id}`, json('PATCH', { status: fromStatus(status) }))),
 };
 
-// ---------- リマインド・通知 ----------
+// ---------- リマインド ----------
 export const reminderApi = {
   /** 予定のリマインドを取り消してから、新しい日時を1つ入れます。 */
   async reschedule(itemId: string, remindAt: string): Promise<Product> {
@@ -120,17 +119,6 @@ export const reminderApi = {
     for (const r of reminders.filter(r => r.status === 'scheduled')) await request<void>(`/reminders/${r.id}`, { method: 'DELETE' });
     await request(`/items/${itemId}/reminders`, json('POST', { remindAt, reason: '自分で決めた日時' }));
     return toProduct(await request<ItemOut>(`/items/${itemId}`));
-  },
-  /** 時刻が来たお知らせ（未回答のもの）。呼んだときに、時刻が来たリマインドがお知らせになります。 */
-  async unread(): Promise<NotificationOut[]> {
-    const { notifications } = await request<{ notifications: NotificationOut[] }>('/notifications');
-    return notifications.filter(n => n.status === 'unread');
-  },
-  /** お知らせに答えます。「欲しい！」は「あとで」（数日後にまた聞く）として送ります。 */
-  async answer(notificationId: string, choice: 'wanted' | 'bought' | 'unneeded'): Promise<Product | null> {
-    const answer = choice === 'wanted' ? 'later' : choice === 'bought' ? 'bought' : 'unwanted';
-    const res = await request<NotificationOut>(`/notifications/${notificationId}/answer`, json('POST', { answer }));
-    return res.item ? toProduct(res.item) : null;
   },
 };
 

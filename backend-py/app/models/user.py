@@ -12,7 +12,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)  # 例：usr_1a2b…
-    email: Mapped[str] = mapped_column(Text, unique=True)  # 小文字にそろえて保存
+    email: Mapped[str] = mapped_column(Text, unique=True)  # ユーザー名（小文字にそろえて保存。前はメールアドレスだったので列名は email のまま）
     password_hash: Mapped[str] = mapped_column(Text)  # 「salt:hash」（scrypt）。パスワードそのものは保存しない
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

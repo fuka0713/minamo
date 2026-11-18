@@ -6,5 +6,6 @@ export interface AuthService { signIn(email?: string, password?: string): Promis
 const isBlank = (email: string, password: string) => !email.trim() && !password;
 export const authService: AuthService = {
   signIn: (email = '', password = '') => isBlank(email, password) ? authApi.guest() : authApi.login(email.trim(), password),
-  signUp: (email = '', password = '') => isBlank(email, password) ? authApi.guest() : authApi.signup(email.trim(), password),
+  // デモ用の「test / test」は、新規登録の画面から入れてもログインにする
+  signUp: (email = '', password = '') => isBlank(email, password) ? authApi.guest() : email.trim().toLowerCase() === 'test' ? authApi.login('test', password) : authApi.signup(email.trim(), password),
 };

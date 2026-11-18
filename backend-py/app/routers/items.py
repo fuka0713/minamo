@@ -2,6 +2,8 @@
 
 from typing import Literal
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
@@ -19,11 +21,11 @@ from app.services.suggestions import suggestions_for
 from app.services.timeutil import now_utc
 
 router = APIRouter(tags=["Items"])
-ERRORS = {400: {"model": ErrorEnvelope}, 401: {"model": ErrorEnvelope}, 404: {"model": ErrorEnvelope}}
+ERRORS = {400: {"model": ErrorEnvelope}, 401: {"model": ErrorEnvelope}, 404: {"model": ErrorEnvelope}, 429: {"model": ErrorEnvelope}}
 
 
 @router.post("/api/items", status_code=201, response_model=ItemOut, summary="スクショを解析して商品候補を登録", responses=ERRORS,
-             description="フォームの `image` に画像を1枚（PNG・JPEG・WebP、10MBまで）。複数枚なら1枚ずつ呼ぶ。"
+             description="フォームの `image` に画像を1枚（PNG・JPEG・WebP、10MBまで）。複数枚なら1枚ずつ呼ぶ。1人10分間に40枚まで（超えると 429）。"
              "商品を特定できなくても、スクショは保存して、仮の名前の候補を返す。リマインドの日時も自動で決めて入れる。")
 def create_item(image: UploadFile = File(description="スクショ1枚"), user_id: str = Depends(current_user), db: Session = Depends(get_db)):
     if image.content_type not in config.ALLOWED_IMAGE_TYPES:
@@ -35,6 +37,8 @@ def create_item(image: UploadFile = File(description="スクショ1枚"), user_i
         raise ApiError(400, "EMPTY_IMAGE", "画像が空です。")
 
     now = now_utc()
+    if item_crud.count_recent(db, user_id, now - timedelta(minutes=10)) >= config.UPLOAD_LIMIT_PER_10MIN:
+        raise ApiError(429, "TOO_MANY_UPLOADS", f"短い間にたくさん追加しています。10分間に{config.UPLOAD_LIMIT_PER_10MIN}枚までです。少し待ってから追加してください。")
     image_key = f"users/{user_id}/{new_id('img')}"
     storage.save_image(image_key, data, image.content_type)  # 1. 画像を保存
     result = analysis.analyze(data, image.content_type, now)  # 2. 解析（Gemini か、OCR とルール）

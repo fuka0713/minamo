@@ -23,27 +23,39 @@ def _login(response: Response, db: Session, user_id: str) -> None:
                         secure=config.COOKIE_SECURE, path="/")
 
 
-@router.post("/signup", status_code=201, response_model=UserOut, summary="アカウント登録とログイン", responses=ERRORS)
+def _out(user: User) -> dict:
+    return {"id": user.id, "username": user.email, "email": user.email}
+
+
+@router.post("/signup", status_code=201, response_model=UserOut, summary="アカウント登録とログイン", responses=ERRORS,
+             description="ユーザー名とパスワードだけで登録する（デモ用の簡単なもの）。ユーザー名は1〜50文字、パスワードは4文字以上。"
+             "登録すると、そのままログインした状態になる。")
 def signup(body: Credentials, response: Response, db: Session = Depends(get_db)):
-    email = body.email.strip().lower()
-    if "@" not in email or len(email) > 254:
-        raise ApiError(400, "INVALID_EMAIL", "メールアドレスを入れてください。")
-    if len(body.password) < 8:
-        raise ApiError(400, "WEAK_PASSWORD", "パスワードは8文字以上にしてください。")
-    if user_crud.get_by_email(db, email):
-        raise ApiError(409, "EMAIL_TAKEN", "このメールアドレスはもう登録されています。")
-    user = user_crud.create(db, email, body.password)
+    name = body.username.strip().lower()
+    if not name or len(name) > 50 or any(c.isspace() for c in name):
+        raise ApiError(400, "INVALID_USERNAME", "ユーザー名は、空白なしの1〜50文字にしてください。")
+    if len(body.password) < 4:
+        raise ApiError(400, "WEAK_PASSWORD", "パスワードは4文字以上にしてください。")
+    if name == config.DEMO_USERNAME or name.endswith(".invalid") or user_crud.get_by_email(db, name):
+        raise ApiError(409, "USERNAME_TAKEN", "このユーザー名はもう使われています。別の名前にしてください。")
+    user = user_crud.create(db, name, body.password)
     _login(response, db, user.id)
-    return {"id": user.id, "email": user.email}
+    return _out(user)
 
 
-@router.post("/login", response_model=UserOut, summary="ログイン", responses=ERRORS)
+@router.post("/login", response_model=UserOut, summary="ログイン", responses=ERRORS,
+             description="ユーザー名とパスワードでログインする。デモでは「test / test」でも入れる（みんなで同じアカウントを使う）。")
 def login(body: Credentials, response: Response, db: Session = Depends(get_db)):
-    user = user_crud.get_by_email(db, body.email.strip().lower())
+    name = body.username.strip().lower()
+    if config.ALLOW_GUEST and name == config.DEMO_USERNAME and body.password == config.DEMO_PASSWORD:
+        user = user_crud.get_by_email(db, config.DEMO_EMAIL) or user_crud.create(db, config.DEMO_EMAIL, user_crud.random_password())
+        _login(response, db, user.id)
+        return _out(user)
+    user = user_crud.get_by_email(db, name)
     if user is None or not check_password(body.password, user.password_hash):
-        raise ApiError(401, "INVALID_CREDENTIALS", "メールアドレスかパスワードが違います。")
+        raise ApiError(401, "INVALID_CREDENTIALS", "ユーザー名かパスワードが違います。")
     _login(response, db, user.id)
-    return {"id": user.id, "email": user.email}
+    return _out(user)
 
 
 @router.post("/guest", status_code=201, response_model=UserOut, summary="ゲストで入る（デモ）", responses={403: {"model": ErrorEnvelope}},
@@ -54,7 +66,7 @@ def guest(response: Response, db: Session = Depends(get_db)):
         raise ApiError(403, "GUEST_DISABLED", "ゲストでは入れません。メールアドレスで登録してください。")
     user = user_crud.create_guest(db)
     _login(response, db, user.id)
-    return {"id": user.id, "email": user.email}
+    return _out(user)
 
 
 @router.post("/logout", status_code=204, summary="ログアウト")
@@ -66,5 +78,4 @@ def logout(response: Response, token: str | None = Depends(session_cookie), db: 
 
 @router.get("/me", response_model=UserOut, summary="ログインユーザー", responses=ERRORS)
 def me(user_id: str = Depends(current_user), db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
-    return {"id": user.id, "email": user.email}
+    return _out(db.get(User, user_id))
