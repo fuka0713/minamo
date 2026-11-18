@@ -1,45 +1,24 @@
-"""解析の入口：AI（Gemini / xAI Grok）の鍵があれば AI、なければ（または失敗したら）OCR とルールで解析する。
+"""解析の入口。Gemini の鍵があれば Gemini、なければ（または失敗したら）OCR とルールで解析する。"""
 
-AI を使うときも OCR は動かし、読み取った文字は検索用に残す。
-AI が空にした項目（お店の名前・期間）は、OCR の文字から読み取れたものでおぎなう。
-"""
+from datetime import datetime
 
-from datetime import date
-
-from app.services import ai, analyzer, llm, ocr
-from app.services.genres import place_for
-
-PERIOD_FIELDS = ["period_start", "period_end", "deadline", "release_date"]
+from app.services import analyzer, gemini, ocr
 
 
-class AnalysisError(Exception):
-    """AI も OCR も使えず、何も読み取れなかった。"""
+def analyze(image: bytes, content_type: str, now: datetime) -> dict:
+    """画像から商品の項目を作る。結果には、使った解析の名前（analyzer）と読み取った文字（ocr_text）も入る。"""
+    today = now.date()
+    if gemini.enabled():
+        try:
+            result = gemini.analyze_image(image, content_type, today)
+            kind = analyzer.find_limited_kind(f"{result['name']}\n{result['memo']}")
+            return {**result, "limited_kind": kind, "analyzer": "gemini", "ocr_text": ""}
+        except Exception as err:  # 失敗したらルールの解析に戻す
+            print(f"Gemini で解析できませんでした。ルールで解析します: {err!r}")
 
-
-def analyze(image: bytes, today: date | None = None) -> tuple[dict, str, str]:
-    """(項目, 読み取った文字, 使った解析 "gemini" / "xai" / "rules") を返す。"""
-    today = today or date.today()
     try:
         text = ocr.read_text(image)
     except ocr.OcrError as err:
-        if not llm.enabled():
-            raise AnalysisError(str(err)) from err
-        print(f"文字を読み取れませんでした（AI だけで解析します）: {err}")
+        print(f"文字を読み取れませんでした: {err}")
         text = ""
-    rules = analyzer.analyze(text, today)
-
-    if llm.enabled():
-        try:
-            values = ai.extract_item(image, today)
-        except Exception as err:  # 失敗したら OCR とルールの結果を使う
-            print(f"AI で解析できませんでした。ルールで解析します: {err!r}")
-        else:
-            values["place_category"] = place_for(values["genre"])
-            values["place_name"] = values["place_name"] or rules["place_name"]
-            if not any(values[f] for f in PERIOD_FIELDS):  # 期間が空なら、ルールで読み取れたものを使う
-                values.update({f: rules[f] for f in PERIOD_FIELDS})
-            return values, text, llm.provider()
-
-    if not text:
-        raise AnalysisError("文字を読み取れませんでした")
-    return rules, text, "rules"
+    return {**analyzer.analyze_text(text, today), "analyzer": "rules", "ocr_text": text}
