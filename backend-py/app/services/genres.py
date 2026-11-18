@@ -33,3 +33,31 @@ def genre_label(genre_id: str | None) -> str:
 def place_for(genre_id: str | None) -> str | None:
     """ジャンルから、買えそうなお店の種類を返す（例：cosme → ドラッグストア）。"""
     return next((g["place"] for g in GENRES if g["id"] == genre_id), None)
+
+
+# ---- 場所（お店）と結びつけるための表 ----
+
+# ジャンルのお店の種類を、地図（OpenStreetMap）のタグで表したもの。近くにこの種類のお店があるかを調べるのに使う
+OSM_TAGS = {
+    "cosme": [("shop", "chemist"), ("shop", "cosmetics"), ("amenity", "pharmacy")],
+    "fashion": [("shop", "clothes"), ("shop", "shoes"), ("shop", "bag")],
+    "gadget": [("shop", "electronics"), ("shop", "computer"), ("shop", "mobile_phone")],
+    "interior": [("shop", "furniture"), ("shop", "interior_decoration"), ("shop", "houseware")],
+    "goods": [("shop", "toys"), ("shop", "anime"), ("shop", "gift")],
+    "book": [("shop", "books")],
+    "food": [("amenity", "restaurant"), ("amenity", "cafe"), ("amenity", "fast_food")],
+}
+
+# スクショの文字に出てきたら「具体的なお店」として使う、よくあるお店の名前
+STORE_NAMES = [
+    "IKEA", "ニトリ", "無印良品", "ロフト", "LOFT", "ハンズ", "Francfranc", "3COINS", "PLAZA", "ドン・キホーテ",
+    "マツモトキヨシ", "マツキヨ", "ウエルシア", "ツルハ", "スギ薬局", "サンドラッグ", "ココカラファイン",
+    "ユニクロ", "UNIQLO", "GU", "ZARA", "しまむら", "H&M",
+    "ヨドバシカメラ", "ビックカメラ", "ヤマダ電機", "ケーズデンキ", "Apple Store",
+    "紀伊國屋書店", "TSUTAYA", "蔦屋書店", "ジュンク堂", "アニメイト", "ポケモンセンター", "ちいかわらんど", "ジャンプショップ",
+]
+
+
+def osm_tags_for(genre_id: str | None) -> list[tuple[str, str]]:
+    """ジャンルから、地図で探すお店のタグを返す（例：cosme → shop=chemist など）。"""
+    return OSM_TAGS.get(genre_id or "", [])

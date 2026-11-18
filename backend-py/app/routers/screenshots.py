@@ -2,6 +2,7 @@
 
   POST /api/screenshots               … 登録（登録した日と画像だけを入れる）
   POST /api/screenshots/{id}/analyze  … 解析（OCR などで、埋められる項目を埋める）
+                                        ＋ 解析の結果から、リマインドを1つ自動で入れる
 """
 
 import uuid
@@ -52,7 +53,8 @@ def register(files: list[UploadFile], user_id: int = Depends(current_user), db: 
     "/{item_id}/analyze",
     response_model=ItemOut,
     summary="スクショを解析して、項目を埋める",
-    description="画像の文字を読み取り、商品名・説明文・価格・ジャンル・場所のうち、埋められるところを埋める。"
+    description="画像の文字を読み取り、商品名・説明文・価格・ジャンル・場所（お店の種類・名前）・期間（開催期間・締切・発売日）の"
+    "うち、埋められるところを埋める。そのあと、解析の結果からリマインドを1つ自動で入れる（ユーザーが選んだリマインドがあれば入れない）。"
     "ユーザーが直した項目は上書きしない（force=true のときだけ上書きする）。失敗したら analysis.status が failed になり、もう一度呼べばやり直せる。",
     responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )

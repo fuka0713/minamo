@@ -1,14 +1,17 @@
 """欲しいもの（items テーブル）の読み書き。"""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Item, Reminder
+from app.services import timing
 
 # 解析で埋める項目（ユーザーが直した項目は、再解析で上書きしない）
 ANALYZED_FIELDS = ["title", "description", "price", "genre", "place_category", "place_name"]
+PERIOD_FIELDS = ["period_start", "period_end", "deadline", "release_date"]  # 期間（まとめて「period」として扱う）
+PERIOD_SOURCES = {"period_end", "period_start", "deadline", "release_date"}  # 期間から作った候補
 
 
 def create_item(db: Session, user_id: int, image_key: str) -> Item:
@@ -40,12 +43,95 @@ def apply_analysis(db: Session, item: Item, ocr_text: str, values: dict, force: 
             setattr(item, field, values.get(field))
     if force or "genre" not in item.edited_fields:
         item.genre_source = "auto"
+    if force or ("period" not in item.edited_fields and item.period_source != "user"):
+        for field in PERIOD_FIELDS:
+            setattr(item, field, values.get(field))
+        item.period_source = "auto"
     item.ocr_text = ocr_text
     item.analysis_status = "done"
     item.analyzed_at = datetime.now(UTC)
+    db.flush()
+    schedule_auto_reminder(db, item)
     db.commit()
     db.refresh(item)
     return item
+
+
+# ---------------- リマインド ----------------
+
+def suggestions_for(item: Item, now: datetime | None = None) -> list[dict]:
+    """商品のリマインド候補（解析の結果から推測。理由つき・最大3つ）。"""
+    values = {field: getattr(item, field) for field in ["title", "genre", *PERIOD_FIELDS]}
+    return timing.suggest(values, now or datetime.now(UTC))
+
+
+def pick_best(suggestions: list[dict]) -> dict | None:
+    """自動で入れる1つを選ぶ：期間から作った候補があればその一番早いもの、なければ一番早いもの。"""
+    from_period = [s for s in suggestions if s["source"] in PERIOD_SOURCES]
+    return (from_period or suggestions or [None])[0]
+
+
+def schedule_auto_reminder(db: Session, item: Item) -> None:
+    """解析のあと、自動のリマインドを1つ入れ直す（ユーザーが選んだリマインドがあれば、何もしない）。"""
+    if item.wish_status == "not_want":
+        return
+    reminders = list_reminders(db, item.id)
+    if any(r.source == "user" and r.status == "scheduled" for r in reminders):
+        return
+    for r in reminders:  # 前の自動リマインドは取り消す
+        if r.source == "auto" and r.status == "scheduled":
+            r.status = "canceled"
+    best = pick_best(suggestions_for(item))
+    if best:
+        db.add(Reminder(item_id=item.id, remind_at=best["remindAt"], reason=best["reason"], source="auto"))
+
+
+def add_user_reminder(db: Session, item: Item, remind_at: datetime, reason: str | None) -> Reminder:
+    """ユーザーが選んだリマインドを入れる（自動のリマインドは取り消す）。"""
+    for r in list_reminders(db, item.id):
+        if r.source == "auto" and r.status == "scheduled":
+            r.status = "canceled"
+    reminder = Reminder(item_id=item.id, remind_at=remind_at, reason=reason or "自分で決めた日時です。", source="user")
+    db.add(reminder)
+    db.commit()
+    db.refresh(reminder)
+    return reminder
+
+
+# ---------------- 場所 ----------------
+
+def set_place(db: Session, item: Item, values: dict) -> Item:
+    """場所を登録・変更する（送った項目だけ）。お店の名前・種類を変えたら、再解析で上書きしない。"""
+    for key, column in [("name", "place_name"), ("category", "place_category"), ("lat", "place_lat"),
+                        ("lng", "place_lng"), ("radiusM", "place_radius_m"), ("visible", "place_visible")]:
+        if key in values:
+            setattr(item, column, values[key])
+            if column in ANALYZED_FIELDS and column not in item.edited_fields:
+                item.edited_fields = [*item.edited_fields, column]
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def place_candidates(db: Session, user_id: int, now: datetime, cooldown: timedelta) -> list[Item]:
+    """場所で知らせてよい商品（欲しい・保留で、最近は場所で知らせていないもの）。"""
+    items = db.scalars(select(Item).where(Item.user_id == user_id, Item.wish_status != "not_want"))
+    out = []
+    for item in items:
+        last = item.place_notified_at
+        if last and last.tzinfo is None:  # SQLite はタイムゾーンを持たないので UTC とみなす
+            last = last.replace(tzinfo=UTC)
+        if last and now - last < cooldown:
+            continue
+        if item.place_lat is not None or item.place_name or item.place_category:
+            out.append(item)
+    return out
+
+
+def mark_place_notified(db: Session, items: list[Item], now: datetime) -> None:
+    for item in items:
+        item.place_notified_at = now
+    db.commit()
 
 
 def mark_analysis_failed(db: Session, item: Item) -> Item:
@@ -69,9 +155,12 @@ def to_out(db: Session, item: Item) -> dict:
         "price": {"value": item.price, "visible": item.price_visible},
         "wishStatus": item.wish_status,
         "genre": item.genre,
-        "place": {"category": item.place_category, "name": item.place_name, "visible": item.place_visible},
+        "place": {"category": item.place_category, "name": item.place_name, "visible": item.place_visible,
+                  "lat": item.place_lat, "lng": item.place_lng, "radiusM": item.place_radius_m},
+        "period": {"start": item.period_start, "end": item.period_end, "deadline": item.deadline,
+                   "release": item.release_date, "source": item.period_source},
         "reminders": [
-            {"id": r.id, "remindAt": r.remind_at, "reason": r.reason, "status": r.status}
+            {"id": r.id, "remindAt": r.remind_at, "reason": r.reason, "status": r.status, "source": r.source}
             for r in list_reminders(db, item.id)
         ],
     }

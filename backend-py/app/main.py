@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.database import create_tables
-from app.routers import screenshots
+from app.routers import screenshots, timing
 from app.services import storage
 
 
@@ -42,6 +42,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(timing.router)  # /nearby を /{id}/… より先に登録する
 app.include_router(screenshots.router)
 
 
