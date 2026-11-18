@@ -30,7 +30,7 @@ export type User = { id: number; email: string };
 
 export type Genre = { id: string; label: string };
 
-// 共通：API を呼んで、結果を JSON で受け取る
+// 共通：API を呼んで、結果を JSON で受け取る（エラーの文は Express は error、FastAPI は detail に入る）
 // ログインしていなければ（401）、ログイン画面に移る
 async function call(path: string, options?: RequestInit) {
   const res = await fetch(path, options);
@@ -40,7 +40,7 @@ async function call(path: string, options?: RequestInit) {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `エラーが起きました（${res.status}）`);
+    throw new Error(body.error ?? (typeof body.detail === "string" ? body.detail : `エラーが起きました（${res.status}）`));
   }
   return res.status === 204 ? null : res.json();
 }
@@ -110,6 +110,90 @@ export function updateItem(id: number, changes: Partial<Item>): Promise<Item> {
 // 削除
 export function deleteItem(id: number): Promise<null> {
   return call(`/api/items/${id}`, { method: "DELETE" });
+}
+
+// ---- 推薦 API（いつ・どこで思い出させるか）。FastAPI が担当 ----
+
+// 推薦：いつ知らせるとよいか（推薦日）と、その理由（推薦理由）
+export type Recommendation = {
+  id: number;
+  itemId: number;
+  recommendAt: string; // 推薦日（日時。タイムゾーンつき）
+  reason: string; // 推薦理由
+  basis: string; // 一番の理由（deadline, period_end, payday, place など）
+  source: "gemini" | "groq" | "rules"; // 考えたもの（AI か、ルールか）
+  status: "suggested" | "accepted";
+  place: { name: string; lat: number | null; lng: number | null } | null; // 理由に使ったお店
+  item: { id: number; title: string | null; genre: string | null; imageUrl: string } | null; // ホームの一覧のときだけ
+};
+
+// 近くで買える欲しいもの
+export type NearbyMatch = {
+  itemId: number;
+  title: string | null;
+  imageUrl: string;
+  placeName: string;
+  distanceM: number;
+  reason: string;
+  source: "gemini" | "groq" | "rules";
+};
+
+export type Position = { lat: number; lng: number };
+
+// 推薦を作る（解析のあとに呼ぶ）。今いる場所を渡すと、近いお店を理由に使う
+export function createRecommendations(itemId: number, position?: Position): Promise<{ recommendations: Recommendation[] }> {
+  return sendJson(`/api/recommendations/items/${itemId}`, position ?? {});
+}
+
+// 欲しいもの1件の推薦
+export function getRecommendations(itemId: number): Promise<{ recommendations: Recommendation[] }> {
+  return call(`/api/recommendations/items/${itemId}`);
+}
+
+// ホーム用：見直すとよい欲しいもの（商品ごとに1つ）
+export function getHomeRecommendations(limit = 4): Promise<{ recommendations: Recommendation[] }> {
+  return call(`/api/recommendations?limit=${limit}`);
+}
+
+// 推薦をリマインドにする
+export function acceptRecommendation(id: number): Promise<{ id: number; remindAt: string }> {
+  return call(`/api/recommendations/${id}/accept`, { method: "POST" });
+}
+
+// 今いる場所の近くで買える欲しいもの
+export function findNearby(position: Position): Promise<{ matches: NearbyMatch[] }> {
+  return sendJson("/api/recommendations/nearby", position);
+}
+
+// 欲しいものの場所を登録する（「ここを通ったら知らせて」）
+export function setPlace(itemId: number, place: { name?: string | null; lat?: number | null; lng?: number | null; radiusM?: number }) {
+  return call(`/api/screenshots/${itemId}/place`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(place),
+  });
+}
+
+// ブラウザの現在地（位置情報の許可が必要）。取れなければ null
+export function getPosition(): Promise<Position | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => resolve(null),
+      { timeout: 8000 },
+    );
+  });
+}
+
+// 推薦日の表示（例：11/25(水) 20:00）
+export function showDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+// 考えたものの表示
+export function showSource(source: string): string {
+  return source === "gemini" ? "Gemini" : source === "groq" ? "Groq" : "ルール";
 }
 
 // 期間の表示（例：11/1〜11/30、締切 12/5、発売 12/20）

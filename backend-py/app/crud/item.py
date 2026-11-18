@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.models import Item, Reminder
 from app.services import timing
+from app.services.timeutil import to_utc
 
 # 解析で埋める項目（ユーザーが直した項目は、再解析で上書きしない）
 ANALYZED_FIELDS = ["title", "description", "price", "genre", "place_category", "place_name"]
 PERIOD_FIELDS = ["period_start", "period_end", "deadline", "release_date"]  # 期間（まとめて「period」として扱う）
-PERIOD_SOURCES = {"period_end", "period_start", "deadline", "release_date"}  # 期間から作った候補
 
 
 def create_item(db: Session, user_id: int, image_key: str) -> Item:
@@ -51,8 +51,6 @@ def apply_analysis(db: Session, item: Item, ocr_text: str, values: dict, force: 
     item.analyzer = analyzer
     item.analysis_status = "done"
     item.analyzed_at = datetime.now(UTC)
-    db.flush()
-    schedule_auto_reminder(db, item)
     db.commit()
     db.refresh(item)
     return item
@@ -61,38 +59,17 @@ def apply_analysis(db: Session, item: Item, ocr_text: str, values: dict, force: 
 # ---------------- リマインド ----------------
 
 def suggestions_for(item: Item, now: datetime | None = None) -> list[dict]:
-    """商品のリマインド候補（解析の結果から推測。理由つき・最大3つ）。"""
+    """ルールで作るリマインド候補（理由つき・最大3つ）。AI が使えないときの推薦と、AI へのヒントに使う。"""
     values = {field: getattr(item, field) for field in ["title", "genre", *PERIOD_FIELDS]}
     return timing.suggest(values, now or datetime.now(UTC))
 
 
-def pick_best(suggestions: list[dict]) -> dict | None:
-    """自動で入れる1つを選ぶ：期間から作った候補があればその一番早いもの、なければ一番早いもの。"""
-    from_period = [s for s in suggestions if s["source"] in PERIOD_SOURCES]
-    return (from_period or suggestions or [None])[0]
-
-
-def schedule_auto_reminder(db: Session, item: Item) -> None:
-    """解析のあと、自動のリマインドを1つ入れ直す（ユーザーが選んだリマインドがあれば、何もしない）。"""
-    if item.wish_status == "not_want":
-        return
-    reminders = list_reminders(db, item.id)
-    if any(r.source == "user" and r.status == "scheduled" for r in reminders):
-        return
-    for r in reminders:  # 前の自動リマインドは取り消す
-        if r.source == "auto" and r.status == "scheduled":
-            r.status = "canceled"
-    best = pick_best(suggestions_for(item))
-    if best:
-        db.add(Reminder(item_id=item.id, remind_at=best["remindAt"], reason=best["reason"], source="auto"))
-
-
 def add_user_reminder(db: Session, item: Item, remind_at: datetime, reason: str | None) -> Reminder:
-    """ユーザーが選んだリマインドを入れる（自動のリマインドは取り消す）。"""
+    """ユーザーが選んだ（推薦を受け入れた）リマインドを入れる（自動のリマインドは取り消す）。"""
     for r in list_reminders(db, item.id):
         if r.source == "auto" and r.status == "scheduled":
             r.status = "canceled"
-    reminder = Reminder(item_id=item.id, remind_at=remind_at, reason=reason or "自分で決めた日時です。", source="user")
+    reminder = Reminder(item_id=item.id, remind_at=to_utc(remind_at), reason=reason or "自分で決めた日時です。", source="user")
     db.add(reminder)
     db.commit()
     db.refresh(reminder)
@@ -161,7 +138,7 @@ def to_out(db: Session, item: Item) -> dict:
         "period": {"start": item.period_start, "end": item.period_end, "deadline": item.deadline,
                    "release": item.release_date, "source": item.period_source},
         "reminders": [
-            {"id": r.id, "remindAt": r.remind_at, "reason": r.reason, "status": r.status, "source": r.source}
+            {"id": r.id, "remindAt": to_utc(r.remind_at), "reason": r.reason, "status": r.status, "source": r.source}
             for r in list_reminders(db, item.id)
         ],
     }

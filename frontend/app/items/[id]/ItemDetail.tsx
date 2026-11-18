@@ -4,18 +4,38 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { deleteItem, getGenres, getItem, showPrice, updateItem, type Genre, type Item, type Period } from "@/lib/api";
+import {
+  acceptRecommendation,
+  createRecommendations,
+  deleteItem,
+  getGenres,
+  getItem,
+  getPosition,
+  getRecommendations,
+  setPlace,
+  showDateTime,
+  showPrice,
+  showSource,
+  updateItem,
+  type Genre,
+  type Item,
+  type Period,
+  type Recommendation,
+} from "@/lib/api";
 
 export default function ItemDetail({ id }: { id: string }) {
   const router = useRouter();
   const [item, setItem] = useState<Item | null>(null);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [message, setMessage] = useState("");
+  const [recs, setRecs] = useState<Recommendation[]>([]); // 推薦（いつ思い出すか）
+  const [placeName, setPlaceName] = useState(""); // 「ここを通ったら知らせて」のお店の名前
 
-  // 最初に1回だけ：この商品とジャンルの一覧を読み込む
+  // 最初に1回だけ：この商品とジャンルの一覧と、推薦を読み込む
   useEffect(() => {
     getItem(id).then(setItem);
     getGenres().then(setGenres);
+    getRecommendations(Number(id)).then((r) => setRecs(r.recommendations));
   }, [id]);
 
   if (!item) return <p>読み込み中…</p>;
@@ -46,6 +66,31 @@ export default function ItemDetail({ id }: { id: string }) {
   async function changeGenre(genre: string) {
     setItem(await updateItem(item!.id, { genre }));
     setMessage("ジャンルを修正しました");
+  }
+
+  // 推薦を作り直す（今いる場所が取れれば、近いお店を理由に使う）
+  async function remakeRecommendations() {
+    setMessage("おすすめの日を考えています…");
+    const position = (await getPosition()) ?? undefined;
+    setRecs((await createRecommendations(item!.id, position)).recommendations);
+    setMessage("おすすめの日を作り直しました");
+  }
+
+  async function accept(rec: Recommendation) {
+    await acceptRecommendation(rec.id);
+    setRecs(recs.map((r) => (r.id === rec.id ? { ...r, status: "accepted" } : r)));
+    setMessage(`${showDateTime(rec.recommendAt)} にお知らせします`);
+  }
+
+  // 今いる場所を「ここを通ったら知らせて」の場所にする
+  async function registerHere() {
+    const position = await getPosition();
+    if (!position) {
+      setMessage("現在地を取れませんでした（ブラウザの位置情報を許可してください）");
+      return;
+    }
+    await setPlace(item!.id, { name: placeName || null, ...position, radiusM: 200 });
+    setMessage("この場所の近く（200m）を通ったらお知らせします");
   }
 
   async function remove() {
@@ -121,6 +166,45 @@ export default function ItemDetail({ id }: { id: string }) {
             </button>
           </div>
           {message && <p className="text-sm">{message}</p>}
+
+          {/* 推薦（推薦 API）：いつ思い出すか */}
+          <section className="space-y-2 rounded-xl bg-emerald-50 p-3">
+            <div className="flex items-center justify-between">
+              <p className="font-bold">🔔 いつ思い出す？</p>
+              <button onClick={remakeRecommendations} className="chip">
+                おすすめを作り直す
+              </button>
+            </div>
+            {recs.length === 0 && <p className="text-sm text-gray-500">まだおすすめの日がありません。</p>}
+            {recs.map((r) => (
+              <div key={r.id} className="rounded-lg bg-white p-2 text-sm">
+                <p className="font-bold">{showDateTime(r.recommendAt)}</p>
+                <p className="text-gray-600">{r.reason}</p>
+                <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+                  <span>
+                    考えたもの：{showSource(r.source)}
+                    {r.place && `・お店：${r.place.name}`}
+                  </span>
+                  {r.status === "accepted" ? (
+                    <span className="text-emerald-700">✓ この日にお知らせ</span>
+                  ) : (
+                    <button onClick={() => accept(r)} className="chip">
+                      この日にする
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* 場所：ここを通ったら知らせて */}
+          <section className="space-y-2 rounded-xl border border-gray-200 p-3">
+            <p className="font-bold">📍 どこで思い出す？</p>
+            <input value={placeName} onChange={(e) => setPlaceName(e.target.value)} placeholder="お店の名前（例：IKEA 新宿）" className="input" />
+            <button onClick={registerHere} className="chip">
+              今いる場所を登録する
+            </button>
+          </section>
 
           <details>
             <summary className="text-sm text-gray-500">読み取った文字（OCR）</summary>

@@ -1,8 +1,9 @@
 """スクショの登録と解析。
 
   POST /api/screenshots               … 登録（登録した日と画像だけを入れる）
-  POST /api/screenshots/{id}/analyze  … 解析（OCR などで、埋められる項目を埋める）
-                                        ＋ 解析の結果から、リマインドを1つ自動で入れる
+  POST /api/screenshots/{id}/analyze  … 解析（AI または OCR ＋ルールで、埋められる項目を埋める）
+
+いつ・どこで思い出させるか（推薦）は、推薦 API（/api/recommendations/...）が担当する。
 """
 
 import uuid
@@ -54,8 +55,8 @@ def register(files: list[UploadFile], user_id: int = Depends(current_user), db: 
     response_model=ItemOut,
     summary="スクショを解析して、項目を埋める",
     description="画像の文字を読み取り、商品名・説明文・価格・ジャンル・場所（お店の種類・名前）・期間（開催期間・締切・発売日）の"
-    "うち、埋められるところを埋める。サーバーに GEMINI_API_KEY があれば Gemini で画像を解析し、なければ（失敗したら）OCR とルールで解析する。"
-    "そのあと、解析の結果からリマインドを1つ自動で入れる（ユーザーが選んだリマインドがあれば入れない）。"
+    "うち、埋められるところを埋める。サーバーに GEMINI_API_KEY か GROQ_API_KEY があれば AI で画像を解析し、なければ（失敗したら）OCR とルールで解析する。"
+    "推薦（いつ知らせるか）は作らない。続けて POST /api/recommendations/items/{id} を呼ぶ。"
     "ユーザーが直した項目は上書きしない（force=true のときだけ上書きする）。失敗したら analysis.status が failed になり、もう一度呼べばやり直せる。",
     responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )

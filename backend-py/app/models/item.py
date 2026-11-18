@@ -46,7 +46,7 @@ class Item(Base):
     analysis_status: Mapped[str] = mapped_column(Text, default="pending")  # pending=待ち / done=完了 / failed=失敗
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # 解析した日時
     ocr_text: Mapped[str] = mapped_column(Text, default="")  # 読み取った文字（画面には出さない）
-    analyzer: Mapped[str | None] = mapped_column(Text)  # 使った解析：gemini / rules（OCR とルール）
+    analyzer: Mapped[str | None] = mapped_column(Text)  # 使った解析：gemini / groq / rules（OCR とルール）
 
     # ---- Express の backend が使っている列 ----
     genre_source: Mapped[str] = mapped_column(Text, default="auto")  # auto=自動 / user=ユーザーが修正
