@@ -55,7 +55,7 @@ def register(files: list[UploadFile], user_id: int = Depends(current_user), db: 
     response_model=ItemOut,
     summary="スクショを解析して、項目を埋める",
     description="画像の文字を読み取り、商品名・説明文・価格・ジャンル・場所（お店の種類・名前）・期間（開催期間・締切・発売日）の"
-    "うち、埋められるところを埋める。サーバーに GEMINI_API_KEY か GROQ_API_KEY があれば AI で画像を解析し、なければ（失敗したら）OCR とルールで解析する。"
+    "うち、埋められるところを埋める。サーバーに GEMINI_API_KEY か XAI_API_KEY があれば AI で画像を解析し、なければ（失敗したら）OCR とルールで解析する。"
     "推薦（いつ知らせるか）は作らない。続けて POST /api/recommendations/items/{id} を呼ぶ。"
     "ユーザーが直した項目は上書きしない（force=true のときだけ上書きする）。失敗したら analysis.status が failed になり、もう一度呼べばやり直せる。",
     responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},

@@ -1,4 +1,4 @@
-"""解析の入口：AI（Gemini / Groq）の鍵があれば AI、なければ（または失敗したら）OCR とルールで解析する。
+"""解析の入口：AI（Gemini / xAI Grok）の鍵があれば AI、なければ（または失敗したら）OCR とルールで解析する。
 
 AI を使うときも OCR は動かし、読み取った文字は検索用に残す。
 AI が空にした項目（お店の名前・期間）は、OCR の文字から読み取れたものでおぎなう。
@@ -17,7 +17,7 @@ class AnalysisError(Exception):
 
 
 def analyze(image: bytes, today: date | None = None) -> tuple[dict, str, str]:
-    """(項目, 読み取った文字, 使った解析 "gemini" / "groq" / "rules") を返す。"""
+    """(項目, 読み取った文字, 使った解析 "gemini" / "xai" / "rules") を返す。"""
     today = today or date.today()
     try:
         text = ocr.read_text(image)

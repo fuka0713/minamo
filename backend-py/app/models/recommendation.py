@@ -16,7 +16,7 @@ class Recommendation(Base):
     recommend_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # 推薦日（知らせるとよい日時）
     reason: Mapped[str] = mapped_column(Text)  # 推薦理由（通知の文にも使う）
     basis: Mapped[str] = mapped_column(Text, default="other")  # 一番の理由：period_end / deadline / payday / place など
-    source: Mapped[str] = mapped_column(Text, default="rules")  # 考えたもの：gemini / groq / rules
+    source: Mapped[str] = mapped_column(Text, default="rules")  # 考えたもの：gemini / xai / rules
     place_name: Mapped[str | None] = mapped_column(Text)  # 理由に使ったお店
     place_lat: Mapped[float | None] = mapped_column(Float)
     place_lng: Mapped[float | None] = mapped_column(Float)

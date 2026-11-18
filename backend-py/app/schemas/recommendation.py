@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 Basis = Literal["period_end", "period_start", "deadline", "release_date", "payday", "weekend", "season", "place", "other"]
-Source = Literal["gemini", "groq", "rules"]
+Source = Literal["gemini", "xai", "rules"]
 
 
 class Location(BaseModel):
@@ -39,7 +39,7 @@ class RecommendationOut(BaseModel):
     reason: str = Field(description="推薦理由（通知の文にも使う）")
     basis: Basis = Field(description="一番の理由：period_end=期間の終わり / deadline=締切 / release_date=発売日 / "
                          "period_start=始まる日 / payday=給料日 / weekend=週末 / season=季節 / place=お店 / other")
-    source: Source = Field(description="考えたもの：gemini / groq / rules（AI が使えないときのルール）")
+    source: Source = Field(description="考えたもの：gemini / xai / rules（AI が使えないときのルール）")
     status: Literal["suggested", "accepted"] = Field(description="suggested=提案中 / accepted=リマインドにした")
     place: RecPlace | None = Field(None, description="理由に使ったお店")
     item: RecItem | None = Field(None, description="（ホームの一覧のときだけ）商品")

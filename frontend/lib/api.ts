@@ -121,7 +121,7 @@ export type Recommendation = {
   recommendAt: string; // 推薦日（日時。タイムゾーンつき）
   reason: string; // 推薦理由
   basis: string; // 一番の理由（deadline, period_end, payday, place など）
-  source: "gemini" | "groq" | "rules"; // 考えたもの（AI か、ルールか）
+  source: "gemini" | "xai" | "rules"; // 考えたもの（AI か、ルールか）
   status: "suggested" | "accepted";
   place: { name: string; lat: number | null; lng: number | null } | null; // 理由に使ったお店
   item: { id: number; title: string | null; genre: string | null; imageUrl: string } | null; // ホームの一覧のときだけ
@@ -135,7 +135,7 @@ export type NearbyMatch = {
   placeName: string;
   distanceM: number;
   reason: string;
-  source: "gemini" | "groq" | "rules";
+  source: "gemini" | "xai" | "rules";
 };
 
 export type Position = { lat: number; lng: number };
@@ -193,7 +193,7 @@ export function showDateTime(iso: string): string {
 
 // 考えたものの表示
 export function showSource(source: string): string {
-  return source === "gemini" ? "Gemini" : source === "groq" ? "Groq" : "ルール";
+  return source === "gemini" ? "Gemini" : source === "xai" ? "Grok" : "ルール";
 }
 
 // 期間の表示（例：11/1〜11/30、締切 12/5、発売 12/20）

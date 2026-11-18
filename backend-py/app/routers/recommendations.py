@@ -45,7 +45,7 @@ def nearby(body: NearbyIn, user_id: int = Depends(current_user), db: Session = D
 
 @router.post("/items/{item_id}", response_model=RecommendationList, responses=ERRORS, summary="推薦を作る",
              description="解析した項目（期間・締切・発売日・ジャンル・価格）・給料日（仮：毎月25日）・お店の場所から、"
-             "いつ知らせるとよいか（推薦日）と理由（推薦理由）を最大3つ作る。GEMINI_API_KEY か GROQ_API_KEY があれば AI が考え、"
+             "いつ知らせるとよいか（推薦日）と理由（推薦理由）を最大3つ作る。GEMINI_API_KEY か XAI_API_KEY があれば AI が考え、"
              "なければ（失敗したら）ルールで作る。1つを自動でリマインドにする（自分で選んだリマインドがあれば入れない）。"
              "body に今いる場所を入れると、近いお店を理由に使う（なければ新宿駅のまわりで探す）。")
 def create(item_id: int, body: Location | None = None, user_id: int = Depends(current_user), db: Session = Depends(get_db)):

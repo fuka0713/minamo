@@ -44,12 +44,12 @@ services:
       APP_TIMEZONE: Asia/Tokyo
       # お店の情報：dummy（仮のお店・既定）/ overpass（OpenStreetMap で調べる）/ none
       POI_PROVIDER: ${POI_PROVIDER:-dummy}
-      # 生成 AI（解析・推薦日・推薦理由）。鍵が入っている方を使う（両方なら LLM_PROVIDER で選ぶ）。どちらも空ならルールで動く
-      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      # 生成 AI（解析・推薦日・推薦理由）。LLM_PROVIDER＝gemini（既定）/ xai。鍵が無い方は使わない。どちらも空ならルールで動く
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      XAI_MODEL: ${XAI_MODEL:-grok-4}
     depends_on:
       db:
         condition: service_healthy

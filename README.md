@@ -18,7 +18,7 @@
 | ジャンルが違うときにユーザーが直す | F-09, UC13 |
 | 一覧・ジャンルで絞り込み・キーワード検索 | F-20, F-22 |
 | 詳細・修正・削除 | F-21, F-32 |
-| 🆕 AI（Gemini / Groq）で画像を解析する（鍵がなければ OCR とルール） | F-05 |
+| 🆕 AI（Gemini / xAI Grok）で画像を解析する（鍵がなければ OCR とルール） | F-05 |
 | 🆕 推薦：AI が推薦日と推薦理由を考え、1つを自動でリマインドにする（期間・締切・発売日・給料日・お店の場所から） | UC03, UC04 |
 | 🆕 場所（お店・地点）と結びつけ、推薦理由に使う・近くを通ったら知らせる（お店はダミーのデータ） | UC06 |
 
@@ -73,7 +73,7 @@ API は **解析 API** と **推薦 API** に分けている。
 
 1. **登録** `POST /api/screenshots`：画像を storage に保存し、「登録した日」と「画像」だけを入れる（解析の状態は pending）
 2. **解析** `POST /api/screenshots/{id}/analyze`：商品名・説明文・価格・ジャンル・お店（種類・名前）・期間（開催期間・締切・発売日）を、埋められるところだけ埋める
-   - サーバーの `.env` に AI の鍵（`GEMINI_API_KEY` か `GROQ_API_KEY`）があれば AI で画像を解析する。失敗したら自動で OCR とルールに戻る。使った解析は `analysis.analyzer`（`gemini` / `groq` / `rules`）
+   - サーバーの `.env` に AI の鍵（`GEMINI_API_KEY` か `XAI_API_KEY`）があれば AI で画像を解析する。失敗したら自動で OCR とルールに戻る。使った解析は `analysis.analyzer`（`gemini` / `xai` / `rules`）
    - AI を使うときも OCR は動かし、読み取った文字は検索用に残す。AI が空にしたお店の名前・期間は、OCR の文字からおぎなう
    - ユーザーが直した項目（`edited_fields`）は、再解析で上書きしない。失敗したら `failed` になり、もう一度呼べばやり直せる
 3. **推薦** `POST /api/recommendations/items/{id}`：推薦日と推薦理由を最大3つ作り、1つを自動でリマインドにする
@@ -98,14 +98,14 @@ API は **解析 API** と **推薦 API** に分けている。
 ### 生成 AI の設定（`app/services/llm.py`・`app/services/ai.py`）
 | 設定（サーバーの `/opt/minamo/.env`） | 説明 |
 |---|---|
+| `LLM_PROVIDER` | 使う AI：`gemini`（既定）/ `xai`。選んだ方の鍵が無ければ、もう一方の鍵を使う |
 | `GEMINI_API_KEY` | Google AI Studio（https://aistudio.google.com/apikey）で発行。無料枠あり |
-| `GROQ_API_KEY` | GroqCloud（https://console.groq.com/keys）で発行。無料枠あり |
-| `LLM_PROVIDER` | 両方入れたときに使う方（`gemini` / `groq`）。空なら Gemini |
-| `GEMINI_MODEL` / `GROQ_MODEL` | 使うモデル（既定 `gemini-2.5-flash` / `meta-llama/llama-4-scout-17b-16e-instruct`）。使える名前は各サービスで確認する |
+| `XAI_API_KEY` | xAI Console（https://console.x.ai）で発行。クレジットを先に買う（有料） |
+| `GEMINI_MODEL` / `XAI_MODEL` | 使うモデル（既定 `gemini-2.5-flash` / `grok-4`）。使える名前は各サービスの画面で確認する（xAI は画像を読めるモデルにする） |
 
 - 鍵はサーバーの `.env` だけに書く（GitHub・画面には出さない）。鍵は URL ではなくヘッダーで送る
 - AI の答えは形を確かめてから使う（過去の日・同じ日・決まり以外の値は捨てる）。全部だめならルールに戻る
-- ⚠ AI を使うと、スクショや欲しいものの情報が Google / Groq に送られる。無料枠では送った内容がサービス改善に使われることがある
+- ⚠ AI を使うと、スクショや欲しいものの情報が Google / xAI に送られる。無料枠では送った内容がサービス改善に使われることがある
 
 ### 場所のしくみ（`app/services/places.py`）
 - お店の情報は `POI_PROVIDER` で決まる：**`dummy`（既定）＝新宿・渋谷・池袋あたりの仮のお店（`DUMMY_STORES`）**／`overpass`＝OpenStreetMap で調べる（キー不要・位置は約100mに丸めて送る）／`none`

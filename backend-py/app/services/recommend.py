@@ -1,4 +1,4 @@
-"""推薦（いつ・どこで思い出させるか）を作る。AI（Gemini / Groq）があれば AI、なければルールで考える。
+"""推薦（いつ・どこで思い出させるか）を作る。AI（Gemini / xAI Grok）があれば AI、なければルールで考える。
 
   推薦日・推薦理由 … 期間・締切・発売日・給料日・季節・お店の場所から考える（AI が使えなければ timing.py のルール）
   近くのお店      … places.py（既定はダミーのお店）で探し、通知の一言を AI に考えてもらう（だめならルールの文）
@@ -30,7 +30,7 @@ def store_for(item: Item, lat: float | None, lng: float | None) -> dict | None:
 
 
 def recommend_for_item(item: Item, now: datetime, lat: float | None = None, lng: float | None = None) -> tuple[list[dict], str, dict | None]:
-    """(推薦 [{"remindAt", "reason", "basis"}], 考えたもの "gemini"/"groq"/"rules", 理由に使ったお店) を返す。"""
+    """(推薦 [{"remindAt", "reason", "basis"}], 考えたもの "gemini"/"xai"/"rules", 理由に使ったお店) を返す。"""
     store = store_for(item, lat, lng)
     hints = timing.suggest(_item_values(item), now)
     if llm.enabled():

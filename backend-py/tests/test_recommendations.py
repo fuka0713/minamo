@@ -13,7 +13,7 @@ SHINJUKU = {"lat": 35.6909, "lng": 139.7003}
 @pytest.fixture(autouse=True)
 def no_ai(monkeypatch):
     """ふだんは AI を使わない（ルールで推薦する）。ダミーのお店を使う。"""
-    for k in ("GEMINI_API_KEY", "GROQ_API_KEY"):
+    for k in ("GEMINI_API_KEY", "XAI_API_KEY", "LLM_PROVIDER"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(places, "POI_PROVIDER", "dummy")
 
@@ -111,12 +111,12 @@ def test_近くのダミーのお店で知らせ_AIが理由の文を考える(c
     monkeypatch.setattr(ocr, "read_text", lambda image: "ウォータリーティント リップ\n¥1,650")
     item = analyzed(client)
     assert item["place"]["category"] == "ドラッグストア"
-    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    monkeypatch.setenv("XAI_API_KEY", "test-key")
     monkeypatch.setattr("app.services.ai.nearby_reasons", lambda matches: {matches[0]["itemId"]: "マツキヨまで約80m。リップを試してみる？"})
     m = client.post("/api/recommendations/nearby", json={"lat": 35.6912, "lng": 139.7019}).json()["matches"]
     assert m[0]["placeName"] == "マツモトキヨシ 新宿東口店" and m[0]["distanceM"] < 50
-    assert m[0]["reason"] == "マツキヨまで約80m。リップを試してみる？" and m[0]["source"] == "groq"
-    assert llm.provider() == "groq"
+    assert m[0]["reason"] == "マツキヨまで約80m。リップを試してみる？" and m[0]["source"] == "xai"
+    assert llm.provider() == "xai"
 
 
 def test_自分のものだけ_ログインが必要(client):  # noqa: F811
