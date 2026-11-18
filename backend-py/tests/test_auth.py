@@ -59,3 +59,18 @@ def test_ゲストで入れる(client, monkeypatch):
     client.cookies.clear()
     monkeypatch.setattr(config, "ALLOW_GUEST", False)
     assert client.post("/api/auth/guest").json()["error"]["code"] == "GUEST_DISABLED"
+
+
+def test_デモはtestとtestで入れる(client, monkeypatch):
+    from app import config
+
+    first = client.post("/api/auth/login", json={"email": "test", "password": "test"})
+    assert first.status_code == 200 and first.json()["email"] == "test@demo.invalid"
+    client.cookies.clear()
+    again = client.post("/api/auth/login", json={"email": "TEST", "password": "test"}).json()
+    assert again["id"] == first.json()["id"]  # 同じアカウント
+    assert client.post("/api/auth/login", json={"email": "test", "password": "nope"}).status_code == 401
+    assert client.post("/api/auth/login", json={"email": "test@demo.invalid", "password": "test"}).status_code == 401
+    client.cookies.clear()
+    monkeypatch.setattr(config, "ALLOW_GUEST", False)
+    assert client.post("/api/auth/login", json={"email": "test", "password": "test"}).status_code == 401

@@ -23,6 +23,11 @@ def create(db: Session, email: str, password: str) -> User:
     return user
 
 
+def random_password() -> str:
+    """だれにも分からないパスワード（デモのアカウントは、決まった名前でしか入れないようにする）。"""
+    return new_token()
+
+
 def create_guest(db: Session) -> User:
     """デモ用のゲスト。ログインには使えないメールアドレスと、使えないパスワードにする（このブラウザのクッキーだけで入る）。"""
     user_id = new_id("usr")

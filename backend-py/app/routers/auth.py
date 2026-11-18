@@ -37,9 +37,15 @@ def signup(body: Credentials, response: Response, db: Session = Depends(get_db))
     return {"id": user.id, "email": user.email}
 
 
-@router.post("/login", response_model=UserOut, summary="ログイン", responses=ERRORS)
+@router.post("/login", response_model=UserOut, summary="ログイン", responses=ERRORS,
+             description="メールアドレスとパスワードでログインする。デモでは「test / test」でも入れる（みんなで同じアカウントを使う）。")
 def login(body: Credentials, response: Response, db: Session = Depends(get_db)):
-    user = user_crud.get_by_email(db, body.email.strip().lower())
+    name = body.email.strip().lower()
+    if config.ALLOW_GUEST and name == config.DEMO_USERNAME and body.password == config.DEMO_PASSWORD:
+        user = user_crud.get_by_email(db, config.DEMO_EMAIL) or user_crud.create(db, config.DEMO_EMAIL, user_crud.random_password())
+        _login(response, db, user.id)
+        return {"id": user.id, "email": user.email}
+    user = user_crud.get_by_email(db, name)
     if user is None or not check_password(body.password, user.password_hash):
         raise ApiError(401, "INVALID_CREDENTIALS", "メールアドレスかパスワードが違います。")
     _login(response, db, user.id)

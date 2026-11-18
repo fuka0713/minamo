@@ -29,3 +29,7 @@ ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 # デモ：メールアドレスとパスワードなしで入れる「ゲスト」を許すか（本番で閉じるときは false）
 ALLOW_GUEST = os.environ.get("ALLOW_GUEST", "true").lower() == "true"
+# デモ：みんなで使う「ユーザー名 test / パスワード test」のアカウント（ALLOW_GUEST が true のときだけ）
+DEMO_USERNAME = "test"
+DEMO_PASSWORD = "test"
+DEMO_EMAIL = "test@demo.invalid"
