@@ -5,20 +5,29 @@ from tests.conftest import signup
 
 def test_登録するとログインした状態になる(client):
     user = signup(client, "New@Example.com")
-    assert user["email"] == "new@example.com"
+    assert user["email"] == "new@example.com" and user["username"] == "new@example.com"
     assert user["id"].startswith("usr_")
     assert client.get("/api/auth/me").json() == user
 
 
 def test_登録のエラーは決まった形で返る(client):
-    res = client.post("/api/auth/signup", json={"email": "x", "password": "password1"})
+    res = client.post("/api/auth/signup", json={"username": "a b", "password": "password1"})
     assert res.status_code == 400
     body = res.json()["error"]
-    assert body["code"] == "INVALID_EMAIL"
+    assert body["code"] == "INVALID_USERNAME"
     assert body["requestId"].startswith("req_")
-    assert client.post("/api/auth/signup", json={"email": "b@example.com", "password": "short"}).json()["error"]["code"] == "WEAK_PASSWORD"
+    assert client.post("/api/auth/signup", json={"username": "yuka", "password": "abc"}).json()["error"]["code"] == "WEAK_PASSWORD"
     signup(client)
     assert client.post("/api/auth/signup", json={"email": "a@example.com", "password": "password1"}).status_code == 409
+    assert client.post("/api/auth/signup", json={"username": "test", "password": "test1"}).json()["error"]["code"] == "USERNAME_TAKEN"
+
+
+def test_ユーザー名とパスワードだけで登録できる(client):
+    user = client.post("/api/auth/signup", json={"username": "Yuka", "password": "pass"}).json()
+    assert user["username"] == "yuka"
+    client.post("/api/auth/logout")
+    client.cookies.clear()
+    assert client.post("/api/auth/login", json={"username": "yuka", "password": "pass"}).status_code == 200
 
 
 def test_ログインとログアウト(client):

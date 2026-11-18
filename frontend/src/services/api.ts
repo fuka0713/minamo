@@ -40,7 +40,7 @@ interface ItemOut {
   repeat: Product['repeat']; limitedUntil: string | null; limitedKind: Product['limitedKind'] | null;
 }
 interface NotificationOut { id: string; itemId: string; message: string; status: 'unread' | 'answered'; item: ItemOut | null }
-export interface User { id: string; email: string }
+export interface User { id: string; username: string; email: string }
 
 // ---------- 形の変換 ----------
 const toStatus = (s: ItemOut['status']): Status => (s === 'unwanted' ? 'unneeded' : s);
@@ -61,8 +61,8 @@ export function toProduct(i: ItemOut): Product {
 // ---------- アカウント ----------
 export const authApi = {
   me: () => request<User>('/auth/me'),
-  login: (email: string, password: string) => request<User>('/auth/login', json('POST', { email, password })),
-  signup: (email: string, password: string) => request<User>('/auth/signup', json('POST', { email, password })),
+  login: (username: string, password: string) => request<User>('/auth/login', json('POST', { username, password })),
+  signup: (username: string, password: string) => request<User>('/auth/signup', json('POST', { username, password })),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
   /** デモ：メールアドレスとパスワードなしで入る（このブラウザだけのアカウント） */
   guest: () => request<User>('/auth/guest', { method: 'POST' }),

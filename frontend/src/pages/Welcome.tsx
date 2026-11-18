@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, LockKeyhole, Mail, Sparkles } from 'lucide-react';
+import { ArrowRight, LockKeyhole, Sparkles, UserRound } from 'lucide-react';
 import { authService } from '../services/auth';
 import { appIcon } from '../utils/assets';
 
@@ -22,11 +22,11 @@ export default function Welcome({ onContinue }: { onContinue: () => void | Promi
     <p className="welcome-lead">スクショに残した「欲しい」を、<br />あとから見つけやすく。</p>
     <div className="auth-switch"><button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>ログイン</button><button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>新規登録</button></div>
     <form onSubmit={submit}>
-      <label className="welcome-field"><span><Mail size={16} />メールアドレス</span><input type="text" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="hello@example.com" autoComplete="username" /></label>
-      <label className="welcome-field"><span><LockKeyhole size={16} />パスワード</span><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="8文字以上" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
+      <label className="welcome-field"><span><UserRound size={16} />ユーザー名</span><input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="すきな名前（例：yuka）" autoComplete="username" autoCapitalize="none" /></label>
+      <label className="welcome-field"><span><LockKeyhole size={16} />パスワード</span><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="4文字以上" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
       {error && <p role="alert" className="error-text">{error}</p>}
       <button className="primary welcome-submit" disabled={busy}>{mode === 'login' ? 'ログインしてはじめる' : 'アカウントを作ってはじめる'}<ArrowRight size={17} /></button>
     </form>
-    <div className="demo-login"><Sparkles size={15} /><span>デモでは入力なしでも先へ進めます（このブラウザだけのゲスト）。みんなで使うデモ用は「test ／ test」です。</span></div>
+    <div className="demo-login"><Sparkles size={15} /><span>{mode === 'signup' ? 'ユーザー名とパスワードを決めるだけで登録できます。' : 'デモでは入力なしでも先へ進めます（このブラウザだけのゲスト）。みんなで使うデモ用は「test ／ test」です。'}</span></div>
   </section></main>;
 }
