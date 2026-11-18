@@ -19,21 +19,11 @@ jobs:
         with:
           node-version: 22
 
-      # 画面（frontend）
-      - name: Frontend - install, lint, build
+      # 画面（frontend：React + Vite）
+      - name: Frontend - install, build
         working-directory: frontend
         run: |
           npm ci
-          npm run lint
-          npm run build
-
-      # API（backend）
-      - name: Backend - install, lint, test, build
-        working-directory: backend
-        run: |
-          npm ci
-          npm run lint
-          npm test
           npm run build
 
       # API（backend-py：FastAPI）

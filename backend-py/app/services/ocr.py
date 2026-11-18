@@ -1,4 +1,4 @@
-"""文字認識（OCR）：コンテナに入れた Tesseract で、画像から日本語と英語の文字を読み取る。"""
+"""文字認識（OCR）：コンテナに入れた Tesseract で、日本語と英語の文字を読み取る。"""
 
 import subprocess
 
@@ -8,11 +8,8 @@ class OcrError(Exception):
 
 
 def read_text(image: bytes) -> str:
-    """画像を渡して、読み取った文字を返す。"""
     try:
-        result = subprocess.run(
-            ["tesseract", "stdin", "stdout", "-l", "jpn+eng"], input=image, capture_output=True, timeout=30
-        )
+        result = subprocess.run(["tesseract", "stdin", "stdout", "-l", "jpn+eng"], input=image, capture_output=True, timeout=30)
     except FileNotFoundError as err:
         raise OcrError("Tesseract が入っていません") from err
     except subprocess.TimeoutExpired as err:

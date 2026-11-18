@@ -1,18 +1,20 @@
 """いろいろな API で使う共通の部品。"""
 
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Depends
+from fastapi.security import APIKeyCookie
 from sqlalchemy.orm import Session
 
-from app.crud import session as session_crud
+from app.crud import user as user_crud
 from app.database import get_db
+from app.errors import ApiError
+
+# Swagger の「Authorize」に、ログインのクッキー（session）として表示される
+session_cookie = APIKeyCookie(name="session", auto_error=False, description="ログインすると自動で入るクッキー")
 
 
-def current_user(session: str | None = Cookie(default=None), db: Session = Depends(get_db)) -> int:
-    """クッキー「session」から、ログインしている人の ID を返す。いなければ 401。
-
-    ログイン（クッキーの発行）は Express の backend が行っている。
-    """
-    user_id = session_crud.get_user_id(db, session) if session else None
+def current_user(token: str | None = Depends(session_cookie), db: Session = Depends(get_db)) -> str:
+    """ログインしている人の ID。ログインしていなければ 401。"""
+    user_id = user_crud.user_id_for_token(db, token) if token else None
     if user_id is None:
-        raise HTTPException(status_code=401, detail="ログインしてください")
+        raise ApiError(401, "UNAUTHORIZED", "ログインしてください。")
     return user_id
